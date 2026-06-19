@@ -1,60 +1,126 @@
 import { create } from 'zustand';
 
-interface AppState {
-  startupContext: any | null;
-  businessValidation: any | null;
-  marketIntelligence: any | null;
-  founderAnalysis: any | null;
-  investorFeedback: any | null;
-  strategy: any | null;
-  isLoading: boolean;
-  fullEvaluation: any | null;
+export interface ANTIGRAVITYStore {
+  // ── Phase 1: Intake Form ─────────────────────────────
+  intake: {
+    startup_name: string;
+    problem_statement: string;
+    proposed_solution: string;
+    target_audience: string;
+    business_model: string;
+    market_details: string;
+    competitor_info: string;
+  };
+  setIntake: (field: string, value: string) => void;
+  resetIntake: () => void;
+
+  // ── Phase 2: Interrogation ───────────────────────────
+  interrogationHistory: Array<{ role: string; content: string }>;
+  interrogationSummary: string;
+  weakZones: string[];
+  domainsCompleted: string[];
+  currentDomain: string;
+  addInterrogationMessage: (msg: { role: string; content: string }) => void;
+  completeInterrogation: (summary: string, weakZones: string[]) => void;
+  resetInterrogation: () => void;
+
+  // ── Phase 3+4: Analysis Results ──────────────────────
+  ideaScores: any | null;
+  founderScores: any | null;
+  marketResearch: any | null;
+  competitorIntel: any | null;
+  businessModelEval: any | null;
+  swot: any | null;
+  riskAssessment: any | null;
+  healthDashboard: any | null;
+  budget: any | null;
+  pitchDeck: any | null;
+  roadmap: any | null;
+  subscriptionPlan: any | null;
+  investorMatching: any | null;
+  fundingReadiness: any | null;
+  teamAnalysis: any | null;
   setResults: (data: any) => void;
-  setLoading: (loading: boolean) => void;
+
+  // ── UI State ─────────────────────────────────────────
+  phase: 'intake' | 'interrogation' | 'analyzing' | 'results';
+  setPhase: (phase: 'intake' | 'interrogation' | 'analyzing' | 'results') => void;
+  isLoading: boolean;
+  setLoading: (v: boolean) => void;
+  error: string | null;
+  setError: (e: string | null) => void;
 }
 
-export const useStore = create<AppState>((set) => ({
-  startupContext: null,
-  businessValidation: null,
-  marketIntelligence: null,
-  founderAnalysis: null,
-  investorFeedback: null,
-  strategy: null,
-  isLoading: false,
-  fullEvaluation: null,
+const defaultIntake = {
+  startup_name: '',
+  problem_statement: '',
+  proposed_solution: '',
+  target_audience: '',
+  business_model: '',
+  market_details: '',
+  competitor_info: '',
+};
 
-  setResults: (data) => {
-    // Support clearing results (pass object with null values) or setting new results
-    if (!data || Object.values(data).every(v => v === null)) {
-      set({
-        startupContext: null,
-        businessValidation: null,
-        marketIntelligence: null,
-        founderAnalysis: null,
-        investorFeedback: null,
-        strategy: null,
-        fullEvaluation: null,
-      })
-      return
-    }
+export const useStore = create<ANTIGRAVITYStore>((set) => ({
+  // Intake
+  intake: { ...defaultIntake },
+  setIntake: (field, value) =>
+    set((s) => ({ intake: { ...s.intake, [field]: value } })),
+  resetIntake: () => set({ intake: { ...defaultIntake } }),
+
+  // Interrogation
+  interrogationHistory: [],
+  interrogationSummary: '',
+  weakZones: [],
+  domainsCompleted: [],
+  currentDomain: 'A',
+  addInterrogationMessage: (msg) =>
+    set((s) => ({ interrogationHistory: [...s.interrogationHistory, msg] })),
+  completeInterrogation: (summary, weakZones) =>
+    set({ interrogationSummary: summary, weakZones }),
+  resetInterrogation: () =>
+    set({ interrogationHistory: [], interrogationSummary: '', weakZones: [], domainsCompleted: [], currentDomain: 'A' }),
+
+  // Results
+  ideaScores: null,
+  founderScores: null,
+  marketResearch: null,
+  competitorIntel: null,
+  businessModelEval: null,
+  swot: null,
+  riskAssessment: null,
+  healthDashboard: null,
+  budget: null,
+  pitchDeck: null,
+  roadmap: null,
+  subscriptionPlan: null,
+  investorMatching: null,
+  fundingReadiness: null,
+  teamAnalysis: null,
+  setResults: (data) =>
     set({
-      startupContext: data.startup_context,
-      businessValidation: data.business_validation,
-      marketIntelligence: data.market_intelligence,
-      founderAnalysis: data.founder_analysis,
-      investorFeedback: data.investor_feedback,
-      strategy: data.strategy,
-      // Store full context so negotiation can use it
-      fullEvaluation: {
-        startup_context: data.startup_context,
-        business_validation: data.business_validation,
-        market_intelligence: data.market_intelligence,
-        founder_analysis: data.founder_analysis,
-        investor_feedback: data.investor_feedback,
-        strategy: data.strategy,
-      },
-    })
-  },
+      ideaScores: data.idea_scores,
+      founderScores: data.founder_scores,
+      marketResearch: data.market_research,
+      competitorIntel: data.competitor_intel,
+      businessModelEval: data.business_model_eval,
+      swot: data.swot,
+      riskAssessment: data.risk_assessment,
+      healthDashboard: data.health_dashboard,
+      budget: data.budget,
+      pitchDeck: data.pitch_deck,
+      roadmap: data.roadmap,
+      subscriptionPlan: data.subscription_plan,
+      investorMatching: data.investor_matching,
+      fundingReadiness: data.funding_readiness,
+      teamAnalysis: data.team_analysis,
+    }),
 
-  setLoading: (loading) => set({ isLoading: loading }),
+  // UI
+  phase: 'intake',
+  setPhase: (phase) => set({ phase }),
+  isLoading: false,
+  setLoading: (v) => set({ isLoading: v }),
+  error: null,
+  setError: (e) => set({ error: e }),
 }));
