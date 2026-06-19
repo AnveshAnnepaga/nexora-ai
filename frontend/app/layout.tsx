@@ -15,8 +15,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    // suppressHydrationWarning prevents hydration mismatch errors caused by
+    // browser extensions (like IDE tools) that inject extra classNames into the DOM
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className} suppressHydrationWarning>
         <main className="min-h-screen bg-slate-50 text-slate-900 selection:bg-blue-100 selection:text-blue-900">
           {children}
         </main>

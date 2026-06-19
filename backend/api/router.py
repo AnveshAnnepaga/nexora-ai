@@ -1,4 +1,5 @@
 import os
+import time
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -12,38 +13,48 @@ router = APIRouter()
 UPLOAD_DIR = os.path.join(os.getcwd(), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+
 class EvaluationRequest(BaseModel):
     user_input: str
+
 
 @router.post("/upload")
 async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     """Uploads a file and processes it via ContextBuilder (Layer 1)."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
-        
+
     file_path = os.path.join(UPLOAD_DIR, file.filename)
-    
+
     with open(file_path, "wb") as f:
         content = await file.read()
         f.write(content)
-        
-    # Process file asynchronously
+
     def process_file_task(path):
-        cb = ContextBuilder()
-        cb.process_and_store_file(path)
-        
+        try:
+            cb = ContextBuilder()
+            cb.process_and_store_file(path)
+            print(f"✅ File processed: {path}")
+        except Exception as e:
+            print(f"⚠️ File processing failed: {e}")
+
     background_tasks.add_task(process_file_task, file_path)
-    
+
     return {"message": "File uploaded and processing started.", "filename": file.filename}
 
 
 @router.post("/evaluate")
 async def evaluate_startup(request: EvaluationRequest):
-    """Triggers the Multi-Agent Orchestrator (Layer 2)."""
+    """
+    Triggers the Multi-Agent Orchestrator (Layer 2).
+    Runs all 7 agents sequentially and returns the full evaluation.
+    """
+    if not request.user_input or not request.user_input.strip():
+        raise HTTPException(status_code=400, detail="user_input cannot be empty.")
+
     try:
-        # Initialize state with the user's initial input
         initial_state = {
-            "messages": [HumanMessage(content=request.user_input)],
+            "messages": [HumanMessage(content=request.user_input.strip())],
             "startup_context": {},
             "business_validation": {},
             "market_intelligence": {},
@@ -51,29 +62,52 @@ async def evaluate_startup(request: EvaluationRequest):
             "investor_feedback": {},
             "strategy_output": {},
             "current_agent": "startup_intake",
-            "next_step": ""
+            "next_step": "",
         }
-        
-        # Run the LangGraph application
+
+        print(f"🚀 Starting evaluation for: {request.user_input[:80]}...")
         final_state = orchestrator_app.invoke(initial_state)
-        
+        print("✅ Evaluation complete.")
+
         return {
             "startup_context": final_state.get("startup_context"),
             "business_validation": final_state.get("business_validation"),
             "market_intelligence": final_state.get("market_intelligence"),
             "founder_analysis": final_state.get("founder_analysis"),
             "investor_feedback": final_state.get("investor_feedback"),
-            "strategy": final_state.get("strategy_output")
+            "strategy": final_state.get("strategy_output"),
         }
+
     except Exception as e:
         import traceback
-        error_details = traceback.format_exc()
-        print(f"EVALUATE ERROR: {error_details}")
-        raise HTTPException(status_code=500, detail=str(e))
+        tb = traceback.format_exc()
+        print(f"❌ EVALUATE ERROR:\n{tb}")
+
+        # Detect common Groq/network issues and give clear message
+        msg = str(e)
+        if "522" in msg or "Connection timeout" in msg or "timed out" in msg.lower():
+            raise HTTPException(
+                status_code=503,
+                detail="The AI service (Groq) is temporarily unavailable due to a connection timeout. Please try again in a few seconds."
+            )
+        elif "401" in msg or "api_key" in msg.lower() or "authentication" in msg.lower():
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or missing Groq API key. Please check your backend/.env file and set a valid GROQ_API_KEY."
+            )
+        elif "rate_limit" in msg.lower() or "429" in msg:
+            raise HTTPException(
+                status_code=429,
+                detail="Groq API rate limit reached. Please wait a few seconds and try again."
+            )
+        else:
+            raise HTTPException(status_code=500, detail=f"Evaluation failed: {msg}")
+
 
 class MessageInput(BaseModel):
     role: str
     content: str
+
 
 class NegotiationRequest(BaseModel):
     user_input: str
@@ -85,80 +119,81 @@ class NegotiationRequest(BaseModel):
     business_validation: Optional[Dict[str, Any]] = {}
     strategy_output: Optional[Dict[str, Any]] = {}
 
+
 @router.post("/negotiate")
 async def negotiate_investor(request: NegotiationRequest):
     """
     Context-Aware Interactive Negotiation with the Investor Agent.
-    The investor now knows the startup's full evaluation before negotiating.
+    The investor has read the full evaluation report before responding.
     """
     from agents.llm_setup import get_llm
     from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-    import json
-    
+
+    if not request.user_input or not request.user_input.strip():
+        raise HTTPException(status_code=400, detail="user_input cannot be empty.")
+
     llm = get_llm()
 
-    # Build rich context string from evaluation results
-    startup_name = request.startup_context.get("startup_name", "the startup") if request.startup_context else "the startup"
-    problem = request.startup_context.get("problem_statement", "N/A") if request.startup_context else "N/A"
-    solution = request.startup_context.get("solution_description", "N/A") if request.startup_context else "N/A"
-    audience = request.startup_context.get("target_audience", "N/A") if request.startup_context else "N/A"
+    # Build rich context from evaluation data
+    sc = request.startup_context or {}
+    startup_name = sc.get("startup_name", "the startup")
+    problem = sc.get("problem_statement", "Not specified")
+    solution = sc.get("solution_description", "Not specified")
+    audience = sc.get("target_audience", "Not specified")
 
-    biz_val_text = (request.business_validation or {}).get("evaluation", "No business validation data available.")
-    market_text = (request.market_intelligence or {}).get("market_analysis", "No market analysis available.")
-    investor_verdict = (request.investor_feedback or {}).get("feedback", "No initial verdict available.")
-    strategy_text = (request.strategy_output or {}).get("strategy", "No strategy data available.")
+    biz_val_text = (request.business_validation or {}).get("evaluation", "No validation data.")
+    market_text = (request.market_intelligence or {}).get("market_analysis", "No market data.")
+    verdict = (request.investor_feedback or {}).get("feedback", "No verdict yet.")
+    strategy_text = (request.strategy_output or {}).get("strategy", "No strategy data.")
 
-    system_prompt = f"""You are a shrewd but fair AI Venture Capitalist negotiating with the founder of **{startup_name}**.
+    system_prompt = f"""You are a Partner-level Venture Capitalist negotiating with the founder of **{startup_name}**.
 
-## What You Already Know About This Startup
+## Your Full Evaluation of This Startup
 
-**Problem Being Solved:** {problem}
-**Proposed Solution:** {solution}
+**Problem:** {problem}
+**Solution:** {solution}
 **Target Audience:** {audience}
 
-## Your Completed Evaluation
+### Business Validation Summary:
+{biz_val_text[:700]}
 
-### Business Validation Analysis:
-{biz_val_text[:800]}
+### Market Intelligence:
+{market_text[:700]}
 
-### Market Intelligence Report:
-{market_text[:800]}
-
-### Proposed Strategy:
+### Strategy Overview:
 {strategy_text[:400]}
 
 ### Your Preliminary Investment Verdict:
-{investor_verdict[:600]}
+{verdict[:700]}
 
 ---
 
-## Your Role in This Negotiation
-
-You are negotiating terms with the founder. Your job is to:
-1. Reference SPECIFIC weaknesses or strengths you found in your analysis above
-2. Challenge the founder on CONCRETE issues (e.g., if you flagged no moat, ask about it directly)
-3. Negotiate equity, valuation, and milestones based on the risk you identified
-4. Only upgrade your verdict (Pass → Monitor → Term Sheet) if the founder gives COMPELLING, data-backed answers
-5. Be professional, rigorous, and direct — not generic
-
-Do NOT ask generic questions. Reference your actual analysis.
+## Your Negotiation Rules
+- Reference SPECIFIC data from your evaluation above (don't ask generic questions)
+- Challenge the founder on the EXACT weaknesses you identified
+- Negotiate equity, valuation, and milestone-based conditions
+- Only upgrade your verdict if the founder gives compelling, data-backed answers
+- Be professional, direct, and rigorous — not generic or vague
+- Each response should be 2-4 paragraphs with 1-2 follow-up questions
 """
 
     messages = [SystemMessage(content=system_prompt)]
-    
+
     for msg in request.history:
         if msg.role == "user":
             messages.append(HumanMessage(content=msg.content))
         else:
             messages.append(AIMessage(content=msg.content))
-            
-    # Add the latest user input
-    messages.append(HumanMessage(content=request.user_input))
-    
+
+    messages.append(HumanMessage(content=request.user_input.strip()))
+
     try:
         response = llm.invoke(messages)
         return {"reply": response.content}
     except Exception as e:
         import traceback
-        print(f"NEGOTIATE ERROR: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"❌ NEGOTIATE ERROR:\n{traceback.format_exc()}")
+        msg = str(e)
+        if "522" in msg or "timed out" in msg.lower():
+            raise HTTPException(status_code=503, detail="Groq API timed out. Please try again.")
+        raise HTTPException(status_code=500, detail=f"Negotiation failed: {msg}")
