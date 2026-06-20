@@ -2,7 +2,7 @@
 
 Nexora is a full-stack, AI-powered platform designed to evaluate and validate startup ideas. By leveraging a team of 16 specialized AI agents, Nexora acts as a relentless, data-driven mentor and investor panel, providing founders with comprehensive market research, SWOT analysis, and actionable feedback before they write a single line of code.
 
-**[🌟 Live Demo](https://nexora-validator.vercel.app/)** 
+**[Live Demo](https://nexora-validator.vercel.app/)** 
 
 ## 🧠 Core Features
 - **16-Agent Orchestration:** Powered by LangGraph, specialized agents (Market Analyst, Tech Lead, VCs, Legal) sequentially interrogate and evaluate your startup idea.
