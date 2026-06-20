@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export interface ANTIGRAVITYStore {
+export interface NexoraStore {
   // ── Phase 1: Intake Form ─────────────────────────────
   intake: {
     startup_name: string;
@@ -55,7 +55,7 @@ const defaultIntake = {
   pdf_content: '',
 };
 
-export const useStore = create<ANTIGRAVITYStore>((set) => ({
+export const useStore = create<NexoraStore>((set) => ({
   // Intake
   intake: { ...defaultIntake },
   setIntake: (field, value) =>

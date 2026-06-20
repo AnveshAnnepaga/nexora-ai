@@ -1,5 +1,5 @@
 """
-ANTIGRAVITY API Router
+Nexora API Router
 Endpoints: /upload, /evaluate (full pipeline), /interrogate (investor chat)
 """
 import os
@@ -66,7 +66,7 @@ class EvaluationRequest(BaseModel):
 @router.post("/evaluate")
 async def evaluate_startup(request: EvaluationRequest, db: Session = Depends(get_db)):
     """
-    ANTIGRAVITY Full Pipeline — Phases 1, 3, 4
+    Nexora Full Pipeline — Phases 1, 3, 4
     Runs 16 agents sequentially and returns the complete intelligence report.
     """
     if not request.idea_text.strip() and not request.video_content.strip() and not request.startup_name.strip():
@@ -107,7 +107,7 @@ async def evaluate_startup(request: EvaluationRequest, db: Session = Depends(get
             "team_analysis": {},
         }
 
-        print(f"\n🚀 ANTIGRAVITY Pipeline starting for: {request.startup_name}")
+        print(f"\n🚀 Nexora Pipeline starting for: {request.startup_name}")
         final_state = orchestrator_app.invoke(initial_state)
         overall_score = final_state.get('health_dashboard', {}).get('overall_score', 0)
         success_prob = final_state.get('health_dashboard', {}).get('success_probability', 0)

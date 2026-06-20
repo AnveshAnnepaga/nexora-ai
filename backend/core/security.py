@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-SECRET_KEY = "supersecretkey_antigravity_platform" # Hardcoded for demo purposes
+SECRET_KEY = "supersecretkey_nexora_platform" # Hardcoded for demo purposes
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 days
 
