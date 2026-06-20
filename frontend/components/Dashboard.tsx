@@ -62,7 +62,7 @@ export default function Dashboard() {
     const progressInterval = startAgentProgress()
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/v1/evaluate", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/v1/evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_input: input })
@@ -106,7 +106,7 @@ export default function Dashboard() {
     formData.append("file", selectedFile)
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/v1/upload", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/v1/upload`, {
         method: "POST",
         body: formData
       })

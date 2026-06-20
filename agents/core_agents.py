@@ -67,12 +67,9 @@ def idea_scoring_agent(state: ANTIGRAVITYState) -> ANTIGRAVITYState:
     startup_name = state.get("startup_name", "Unknown")
     context = f"""
 Startup: {startup_name}
-Problem: {state.get("problem_statement", "N/A")}
-Solution: {state.get("proposed_solution", "N/A")}
-Target Audience: {state.get("target_audience", "N/A")}
-Business Model: {state.get("business_model", "N/A")}
-Market Details: {state.get("market_details", "N/A")}
-Competitor Info: {state.get("competitor_info", "N/A")}
+Video Content: {state.get("video_content", "N/A")}
+Idea Text: {state.get("idea_text", "N/A")}
+PDF Content: {state.get("pdf_content", "N/A")}
 Interrogation Summary: {state.get("interrogation_summary", "N/A")[:600]}
 """
 
@@ -111,56 +108,21 @@ Return ONLY this exact JSON structure (no extra text, no markdown):
 # AGENT 3: FOUNDER SCORING AGENT (Phase 3B)
 # ─────────────────────────────────────────────────────────────
 def founder_scoring_agent(state: ANTIGRAVITYState) -> ANTIGRAVITYState:
-    """Generates 7 founder intelligence scores from video/pitch + Q&A."""
-    llm = get_json_llm()
-
-    video_transcript = state.get("founder_video_transcript", "")
-    interrogation = state.get("interrogation_summary", "")
-    problem = state.get("problem_statement", "")
-    solution = state.get("proposed_solution", "")
-    startup_name = state.get("startup_name", "Unknown")
-
-    if video_transcript:
-        analysis_source = f"Video Transcript:\n{video_transcript[:800]}"
-        has_video = True
-    else:
-        analysis_source = f"Written Pitch (no video):\nStartup: {startup_name}\nProblem: {problem}\nSolution: {solution}"
-        has_video = False
-
-    context = f"""{analysis_source}
-
-Investor Q&A Session Summary:
-{interrogation[:600]}
-"""
-
-    system_prompt = f"""You are an expert Founder Psychologist and Pitch Coach.
-Analyze the founder based on {"video transcript" if has_video else "written pitch"} and Q&A session.
-Score each dimension (0-100) with a one-line justification.
-Return ONLY this exact JSON (no markdown, no extra text):
-{{
-  "communication_clarity": <0-100>,
-  "confidence": <0-100>,
-  "passion": <0-100>,
-  "domain_expertise": <0-100>,
-  "leadership_signal": <0-100>,
-  "presentation_quality": <0-100>,
-  "credibility": <0-100>,
-  "overall_founder_score": <0-100>,
-  "has_video": {str(has_video).lower()},
-  "justifications": {{
-    "communication_clarity": "reason",
-    "confidence": "reason",
-    "passion": "reason",
-    "domain_expertise": "reason",
-    "leadership_signal": "reason",
-    "presentation_quality": "reason",
-    "credibility": "reason"
-  }}
-}}"""
-
-    response = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=context)])
-    state["founder_scores"] = _safe_json(response.content)
-    print(f"✅ Agent 3 [Founder Scoring] done")
+    """Generates 7 founder intelligence scores from video/pitch + Q&A (DISABLED)."""
+    # Disabled to remove founder scoring and save tokens as requested
+    state["founder_scores"] = {
+        "overall_founder_score": 0,
+        "has_video": False,
+        "communication_clarity": 0,
+        "confidence": 0,
+        "passion": 0,
+        "domain_expertise": 0,
+        "leadership_signal": 0,
+        "presentation_quality": 0,
+        "credibility": 0,
+        "justifications": {}
+    }
+    print(f"✅ Agent 3 [Founder Scoring] done (Skipped)")
     return state
 
 
@@ -173,17 +135,16 @@ def market_research_agent(state: ANTIGRAVITYState) -> ANTIGRAVITYState:
 
     vsm = VectorStoreManager()
     rag_results = vsm.similarity_search(
-        f"market size trends {state.get('proposed_solution', '')} {state.get('target_audience', '')}",
+        f"market size trends {state.get('startup_name', '')} {state.get('idea_text', '')[:100]}",
         k=3
     )
     rag_context = "\n\n".join([d.page_content for d in rag_results]) if rag_results else "No uploaded market data."
 
     context = f"""
 Startup: {state.get("startup_name", "Unknown")}
-Problem: {state.get("problem_statement", "N/A")}
-Solution: {state.get("proposed_solution", "N/A")}
-Target Audience: {state.get("target_audience", "N/A")}
-Market Details (from founder): {state.get("market_details", "None provided")}
+Video Content: {state.get("video_content", "N/A")}
+Idea Text: {state.get("idea_text", "N/A")}
+PDF Content: {state.get("pdf_content", "N/A")}
 
 Uploaded Knowledge Base Context:
 {rag_context[:600]}

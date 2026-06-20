@@ -33,11 +33,9 @@ def _safe_json(text: str) -> dict:
 def _build_context(state: ANTIGRAVITYState, extra: str = "") -> str:
     return f"""
 Startup: {state.get("startup_name", "Unknown")}
-Problem: {state.get("problem_statement", "N/A")}
-Solution: {state.get("proposed_solution", "N/A")}
-Target Audience: {state.get("target_audience", "N/A")}
-Business Model: {state.get("business_model", "N/A")}
-Founder-provided competitor info: {state.get("competitor_info", "None")}
+Video Content: {state.get("video_content", "N/A")}
+Idea Text: {state.get("idea_text", "N/A")}
+PDF Content: {state.get("pdf_content", "N/A")}
 Market: {json.dumps(state.get("market_research", {}), indent=2)[:500]}
 {extra}
 """
@@ -51,14 +49,14 @@ def competitor_intelligence_agent(state: ANTIGRAVITYState) -> ANTIGRAVITYState:
     llm = get_json_llm()
     context = _build_context(state)
 
-    system_prompt = """You are a Competitive Intelligence Analyst with deep knowledge of the startup ecosystem including YC-backed companies.
-Identify 4-6 direct and indirect competitors for this startup. Include YC companies where relevant (label them with "YC").
+    system_prompt = """You are a Competitive Intelligence Analyst with deep knowledge of the startup ecosystem.
+Identify 4-6 direct and indirect competitors for this startup.
 Return ONLY this exact JSON (no markdown):
 {
   "competitors": [
     {
       "name": "Company Name",
-      "is_yc": true/false,
+      "url": "https://company.com",
       "funding": "$X million Series A / Bootstrapped / etc",
       "market_share_pct": 25,
       "strengths": ["strength 1", "strength 2"],
@@ -199,7 +197,6 @@ def health_dashboard_agent(state: ANTIGRAVITYState) -> ANTIGRAVITYState:
 
     # Derive composite scores
     idea_score = safe_int(idea.get("problem_solution_fit", 50))
-    founder_score = safe_int(founder.get("overall_founder_score", 50))
     market_score = 70  # Default if market data insufficient
     product_score = safe_int(idea.get("feasibility", 50))
     financial_score = safe_int(biz.get("sustainability_score", 50))
@@ -213,11 +210,10 @@ def health_dashboard_agent(state: ANTIGRAVITYState) -> ANTIGRAVITYState:
         risk_scores.append(risk_levels.get(level, 60))
     risk_score = int(sum(risk_scores) / len(risk_scores)) if risk_scores else 60
 
-    overall = int((idea_score + founder_score + market_score + product_score + financial_score + growth_potential + risk_score) / 7)
+    overall = int((idea_score + market_score + product_score + financial_score + growth_potential + risk_score) / 6)
 
     state["health_dashboard"] = {
         "idea_score": idea_score,
-        "founder_score": founder_score,
         "market_score": market_score,
         "product_score": product_score,
         "financial_score": financial_score,

@@ -23,8 +23,27 @@ app.add_middleware(
 )
 
 from backend.api.router import router as api_router
+from backend.api.auth import router as auth_router
+from backend.api.messages import router as messages_router
+from backend.api.investors import router as investors_router
+from backend.api.ideas import router as ideas_router
+from backend.api.reports import router as reports_router
+from backend.api.ai_assistant import router as ai_assistant_router
+from backend.api.notifications import router as notifications_router
+from backend.core.database import Base, engine
+
+# Create tables if they don't exist
+# Base.metadata.drop_all(bind=engine) # REMOVED: This was wiping the DB on every hot-reload
+Base.metadata.create_all(bind=engine)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
+app.include_router(messages_router, prefix=f"{settings.API_V1_STR}/messages", tags=["messages"])
+app.include_router(investors_router, prefix=f"{settings.API_V1_STR}/investors", tags=["investors"])
+app.include_router(ideas_router, prefix=f"{settings.API_V1_STR}/ideas", tags=["ideas"])
+app.include_router(reports_router, prefix=f"{settings.API_V1_STR}/reports", tags=["reports"])
+app.include_router(ai_assistant_router, prefix=f"{settings.API_V1_STR}/ai-assistant", tags=["ai_assistant"])
+app.include_router(notifications_router, prefix=f"{settings.API_V1_STR}/notifications", tags=["notifications"])
 
 @app.get("/")
 def root():

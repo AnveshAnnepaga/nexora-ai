@@ -32,10 +32,9 @@ def _safe_json(text: str) -> dict:
 
 def _ctx(state: ANTIGRAVITYState) -> str:
     return f"""Startup: {state.get("startup_name","Unknown")}
-Problem: {state.get("problem_statement","N/A")}
-Solution: {state.get("proposed_solution","N/A")}
-Target Audience: {state.get("target_audience","N/A")}
-Business Model: {state.get("business_model","N/A")}
+Video Content: {state.get("video_content", "N/A")}
+Idea Text: {state.get("idea_text", "N/A")}
+PDF Content: {state.get("pdf_content", "N/A")}
 Market Research: {json.dumps(state.get("market_research",{}))[:400]}
 Idea Scores: {json.dumps(state.get("idea_scores",{}))[:300]}
 Health Score: {state.get("health_dashboard",{}).get("overall_score","N/A")}/100"""
@@ -260,11 +259,6 @@ Return ONLY this exact JSON (no markdown):
       "fit_reason": "Why this angel archetype fits"
     }
   ],
-  "yc_fit": {
-    "score": <0-100>,
-    "recommendation": "Apply / Don't apply yet / Not suitable",
-    "reasoning": "Why YC is or isn't a fit and what they'd look for"
-  },
   "accelerators": ["Accelerator 1 — why", "Accelerator 2 — why"],
   "funding_stage_recommendation": "Pre-seed / Seed / Bridge",
   "ideal_check_size": "$X,000 - $X,000"
@@ -318,8 +312,7 @@ Assess their readiness to raise investment. Return ONLY this exact JSON (no mark
 def team_analysis_agent(state: ANTIGRAVITYState) -> ANTIGRAVITYState:
     """Identifies skill gaps, missing roles, and team balance."""
     llm = get_json_llm()
-    founder = state.get("founder_scores", {})
-    ctx = _ctx(state) + f"\nFounder Scores: {json.dumps(founder)[:300]}"
+    ctx = _ctx(state)
 
     system_prompt = """You are a Team Building Expert and talent strategist for startups.
 Analyze the founder(s) and identify what's missing. Return ONLY this exact JSON (no markdown):

@@ -4,12 +4,9 @@ export interface ANTIGRAVITYStore {
   // ── Phase 1: Intake Form ─────────────────────────────
   intake: {
     startup_name: string;
-    problem_statement: string;
-    proposed_solution: string;
-    target_audience: string;
-    business_model: string;
-    market_details: string;
-    competitor_info: string;
+    video_content: string;
+    idea_text: string;
+    pdf_content: string;
   };
   setIntake: (field: string, value: string) => void;
   resetIntake: () => void;
@@ -53,12 +50,9 @@ export interface ANTIGRAVITYStore {
 
 const defaultIntake = {
   startup_name: '',
-  problem_statement: '',
-  proposed_solution: '',
-  target_audience: '',
-  business_model: '',
-  market_details: '',
-  competitor_info: '',
+  video_content: '',
+  idea_text: '',
+  pdf_content: '',
 };
 
 export const useStore = create<ANTIGRAVITYStore>((set) => ({

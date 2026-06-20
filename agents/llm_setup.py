@@ -24,11 +24,11 @@ def get_llm(model_name: str = "llama-3.1-8b-instant", temperature: float = 0.7):
     api_key = _get_key()
     if not api_key:
         raise ValueError("GROQ_API_KEY not found in backend/.env file.")
-    return ChatGroq(model=model_name, api_key=api_key, temperature=temperature)
+    return ChatGroq(model=model_name, api_key=api_key, temperature=temperature, max_retries=10)
 
 def get_json_llm(model_name: str = "llama-3.1-8b-instant"):
     """Returns a ChatGroq LLM configured to output structured text."""
     api_key = _get_key()
     if not api_key:
         raise ValueError("GROQ_API_KEY not found in backend/.env file.")
-    return ChatGroq(model=model_name, api_key=api_key, temperature=0.1)
+    return ChatGroq(model=model_name, api_key=api_key, temperature=0.1, max_retries=10)

@@ -8,6 +8,7 @@ redis
 python-multipart
 python-jose[cryptography]
 passlib[bcrypt]
+bcrypt==4.0.1
 fastapi-mail
 langchain
 langgraph
@@ -33,3 +34,4 @@ opencv-python
 tesseract
 sentence-transformers
 docx2txt
+reportlab

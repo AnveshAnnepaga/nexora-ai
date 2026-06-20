@@ -8,6 +8,10 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
+from backend.core.database import get_db
+from backend.core.models import Idea, Notification
+from fastapi import Depends
+from sqlalchemy.orm import Session
 from agents.context_builder import ContextBuilder
 from agents.orchestrator import orchestrator_app
 from langchain_core.messages import HumanMessage
@@ -47,43 +51,37 @@ async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File
 # FULL EVALUATE — Runs all 16 agents (Phases 1, 3, 4)
 # ─────────────────────────────────────────────────────────────
 class EvaluationRequest(BaseModel):
+    user_id: int
     # Phase 1 intake fields
-    startup_name: str
-    problem_statement: str
-    proposed_solution: str
-    target_audience: str
-    business_model: str
-    market_details: Optional[str] = ""
-    competitor_info: Optional[str] = ""
+    startup_name: Optional[str] = "Unknown Startup"
+    video_content: str
+    idea_text: Optional[str] = ""
+    pdf_content: Optional[str] = ""
     # Phase 2 results (optional — passed after investor chat)
     interrogation_summary: Optional[str] = ""
     weak_zones: Optional[List[str]] = []
+    interview_transcript: Optional[List[Dict[str, Any]]] = None
 
 
 @router.post("/evaluate")
-async def evaluate_startup(request: EvaluationRequest):
+async def evaluate_startup(request: EvaluationRequest, db: Session = Depends(get_db)):
     """
     ANTIGRAVITY Full Pipeline — Phases 1, 3, 4
     Runs 16 agents sequentially and returns the complete intelligence report.
     """
-    if not request.startup_name.strip() or not request.problem_statement.strip():
-        raise HTTPException(status_code=400, detail="startup_name and problem_statement are required.")
+    if not request.idea_text.strip() and not request.video_content.strip() and not request.startup_name.strip():
+        raise HTTPException(status_code=400, detail="Please provide a startup name, idea description, or video link.")
 
     try:
         initial_state = {
-            "messages": [HumanMessage(content=f"Evaluate: {request.startup_name}")],
+            "messages": [HumanMessage(content=f"Evaluate startup context")],
             "phase": "intake",
 
             # Phase 1 inputs
             "startup_name": request.startup_name.strip(),
-            "problem_statement": request.problem_statement.strip(),
-            "proposed_solution": request.proposed_solution.strip(),
-            "target_audience": request.target_audience.strip(),
-            "business_model": request.business_model.strip(),
-            "market_details": request.market_details or "",
-            "competitor_info": request.competitor_info or "",
-            "founder_video_transcript": "",
-            "pitch_deck_analysis": "",
+            "video_content": request.video_content.strip(),
+            "idea_text": request.idea_text.strip() if request.idea_text else "",
+            "pdf_content": request.pdf_content.strip() if request.pdf_content else "",
 
             # Phase 2 inputs (from investor chat)
             "interrogation_summary": request.interrogation_summary or "",
@@ -111,7 +109,38 @@ async def evaluate_startup(request: EvaluationRequest):
 
         print(f"\n🚀 ANTIGRAVITY Pipeline starting for: {request.startup_name}")
         final_state = orchestrator_app.invoke(initial_state)
-        print(f"✅ Pipeline complete — Overall Score: {final_state.get('health_dashboard', {}).get('overall_score', 'N/A')}/100\n")
+        overall_score = final_state.get('health_dashboard', {}).get('overall_score', 0)
+        success_prob = final_state.get('health_dashboard', {}).get('success_probability', 0)
+        failure_prob = final_state.get('health_dashboard', {}).get('failure_probability', 0)
+        print(f"✅ Pipeline complete — Overall Score: {overall_score}/100\n")
+
+        # Save to database
+        # Remove non-serializable Langchain messages before saving
+        final_state.pop("messages", None)
+        
+        idea = Idea(
+            user_id=request.user_id,
+            title=request.startup_name.strip(),
+            description=(request.idea_text.strip() or request.video_content.strip() or "Analysis based on uploaded pitch deck/document.")[:500],
+            reports_json=final_state,
+            nexora_score=overall_score,
+            success_probability=success_prob,
+            failure_probability=failure_prob,
+            visibility='public',
+            interview_transcript=request.interview_transcript
+        )
+        db.add(idea)
+        db.commit()
+        db.refresh(idea)
+        
+        # Create notification
+        notif = Notification(
+            user_id=request.user_id,
+            type="system",
+            message=f"Analysis complete for {request.startup_name.strip()}. Your NEXORA score is {overall_score}/100."
+        )
+        db.add(notif)
+        db.commit()
 
         return {
             # Phase 3 Analysis
@@ -160,11 +189,10 @@ class InterrogationRequest(BaseModel):
     user_input: str
     history: List[MessageInput]
     # Startup context for domain-aware questions
-    startup_name: Optional[str] = ""
-    problem_statement: Optional[str] = ""
-    proposed_solution: Optional[str] = ""
-    target_audience: Optional[str] = ""
-    business_model: Optional[str] = ""
+    startup_name: Optional[str] = "Unknown"
+    video_content: Optional[str] = ""
+    idea_text: Optional[str] = ""
+    pdf_content: Optional[str] = ""
     # Which domain to focus on (A-J)
     current_domain: Optional[str] = ""
     domains_completed: Optional[List[str]] = []
@@ -183,10 +211,9 @@ async def interrogate_founder(request: InterrogationRequest):
 
     startup_context = f"""
 Startup: {request.startup_name or "Unknown"}
-Problem: {request.problem_statement or "Not provided"}
-Solution: {request.proposed_solution or "Not provided"}
-Target Audience: {request.target_audience or "Not provided"}
-Business Model: {request.business_model or "Not provided"}
+Video Transcript / Context: {request.video_content or "None"}
+Idea Text: {request.idea_text or "None"}
+PDF Content: {request.pdf_content or "None"}
 """
 
     domains_remaining = [d for d in ["A","B","C","D","E","F","G","H","I","J"]
@@ -218,15 +245,16 @@ Domain {focus}: {domain_map.get(focus, "General questions")}
 {", ".join([f"Domain {d}: {domain_map[d][:40]}..." for d in domains_remaining[:4]])}
 
 ## Your Interrogation Rules
-1. Ask 1-2 probing questions per response (not more)
-2. If the founder's answer is vague or generic, push back with a follow-up before moving on
-3. Reference their specific startup details — don't ask generic questions
-4. Vary your style: direct, hypothetical, devil's advocate, scenario-based
-5. Be professional but rigorous — you are deciding whether to write a check
-6. When you have enough on a domain, acknowledge it briefly and signal moving to the next
-7. If this is the first message, open with who you are and what this session is about
+1. Your entire response MUST be 3 lines or fewer. No exceptions.
+2. Ask exactly ONE probing question at a time. Wait for the answer before proceeding.
+3. Be direct. Do not include long preambles, greetings, or explanations before asking.
+4. If the founder's answer is vague, ask one sharp follow-up to dig deeper.
+5. Vary your style: direct, hypothetical, devil's advocate, scenario-based.
+6. When you have enough on a domain, move to the next domain directly in your next question.
+7. If this is the first message, open with a very short introduction and your first question.
+8. If the founder provides a weak answer, press them on it professionally, but do not insult them.
 
-Keep responses concise (2-3 paragraphs max). Make every question count."""
+Remember: 3 lines maximum. Direct. Sharp. 1 Question."""
 
     messages = [SystemMessage(content=system_prompt)]
     for msg in request.history:

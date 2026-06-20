@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@400;500;600;700;800;900&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -24,10 +24,11 @@ html { scroll-behavior: smooth; }
 
 body {
   font-family: 'Inter', system-ui, sans-serif;
-  background: var(--ag-bg);
-  color: var(--ag-text);
+  background-color: #071421;
+  color: #d7e3f7;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
-  min-height: 100vh;
+  min-height: max(884px, 100dvh);
 }
 
 /* Scrollbar */
@@ -103,3 +104,29 @@ body {
 .swot-weaknesses { background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); }
 .swot-opportunities { background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); }
 .swot-threats { background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); }
+
+/* Nexora Custom Classes */
+.glass-panel {
+    background: rgba(10, 22, 40, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(14, 32, 64, 0.5);
+}
+.glow-cyan {
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+}
+.glow-text-cyan {
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+}
+.scrolling-content {
+    padding-top: 80px;
+    padding-bottom: 100px;
+}
+.feature-card:hover {
+    border-color: #00d4ff;
+    box-shadow: 0 0 25px rgba(0, 212, 255, 0.15);
+    transform: translateY(-4px);
+}
+.timeline-line {
+    background: linear-gradient(to bottom, #00d4ff, #6800ec);
+}
+.orbitron { font-family: 'Orbitron', sans-serif; }

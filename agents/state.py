@@ -13,14 +13,9 @@ class ANTIGRAVITYState(TypedDict):
 
     # ── Phase 1: Intake ───────────────────────────────────
     startup_name: str
-    problem_statement: str
-    proposed_solution: str
-    target_audience: str
-    business_model: str
-    founder_video_transcript: str   # From Whisper or text fallback
-    pitch_deck_analysis: str        # From uploaded PDF
-    market_details: str             # Optional founder-provided
-    competitor_info: str            # Optional founder-provided
+    video_content: str
+    idea_text: str
+    pdf_content: str
 
     # ── Phase 2: Investor Interrogation ──────────────────
     interrogation_summary: str      # Summary of Q&A session

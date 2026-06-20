@@ -41,6 +41,16 @@ reports/
 .DS_Store
 Thumbs.db
 
+# Database
+antigravity.db
+*.sqlite
+*.sqlite3
+
+# Build outputs
+frontend/out/
+.next/
+frontend/.next/
+
 # IDE
 .vscode/
 .idea/

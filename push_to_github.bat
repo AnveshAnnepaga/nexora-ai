@@ -24,19 +24,12 @@ git add .
 echo Files staged.
 
 REM Commit
-git commit -m "feat: complete startup accelerator AI platform
+git commit -m "chore: prep for Hugging Face and Vercel deployment
 
-- 7-agent LangGraph pipeline (Intake, Validation, Market, Founder, Strategy, Investor, Report)
-- Context-aware investor negotiation with full evaluation context
-- Robust JSON parsing for LLM responses
-- Fixed config.py to remove unused DB/Redis dependencies
-- Improved all agent system prompts with structured formatting
-- Founder analysis with video fallback to written pitch
-- FastAPI backend with /upload /evaluate /negotiate endpoints
-- Next.js 15 frontend with Zustand state management
-- ChromaDB RAG for market intelligence
-- Auto-generated PowerPoint pitch deck
-- Comprehensive README and .gitignore"
+- Replaced hardcoded localhost APIs with NEXT_PUBLIC_API_URL
+- Swapped PPTX exporter for ReportLab PDF pitch deck generator
+- Generated Hugging Face Dockerfile
+- Sanitized Content-Disposition filenames"
 
 echo Committed.
 
