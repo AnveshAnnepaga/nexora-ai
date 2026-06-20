@@ -1,168 +1,72 @@
-# 🚀 Startup Accelerator AI
+# Nexora — AI Startup Intelligence Engine 🚀
 
-An AI-powered startup evaluation platform that uses a **7-agent LangGraph pipeline** to analyze your startup idea and give you investor-grade feedback — then lets you **negotiate live with an AI VC investor**.
+Nexora is a full-stack, AI-powered platform designed to evaluate and validate startup ideas. By leveraging a team of 16 specialized AI agents, Nexora acts as a relentless, data-driven mentor and investor panel, providing founders with comprehensive market research, SWOT analysis, and actionable feedback before they write a single line of code.
 
-![Platform](https://img.shields.io/badge/stack-FastAPI%20%2B%20Next.js-blue)
-![LLM](https://img.shields.io/badge/LLM-Groq%20%28llama--3.1--8b%29-orange)
-![RAG](https://img.shields.io/badge/RAG-ChromaDB%20%2B%20HuggingFace-green)
+## 🌟 Live Demo
+**[Launch Nexora Live on Vercel](https://nexora-validator.vercel.app/)** *(Replace this link with your exact final Vercel URL)*
 
----
+## 🧠 Core Features
+- **16-Agent Orchestration:** Powered by LangGraph, specialized agents (Market Analyst, Tech Lead, VCs, Legal) sequentially interrogate and evaluate your startup idea.
+- **Investor Dashboard:** Get an exact "Success Probability Score" and read direct feedback from different investor personas (The Visionary, The Skeptic, The ROI-Obsessed).
+- **Comprehensive Reports:** Automatically generates SWOT analysis, Competitor Analysis, Go-to-Market strategies, and a dynamic Pitch Deck structure.
+- **Real-Time AI Processing:** Extremely fast inference powered by Llama 3 via the Groq API.
+- **Secure Authentication:** User management and sign-ins seamlessly handled by Clerk.
 
-## ✨ Features
+## 🛠 Tech Stack
+### Frontend (Vercel)
+- **Framework:** Next.js 15 (App Router)
+- **Styling:** Tailwind CSS + Framer Motion (for dynamic UI animations)
+- **State Management:** Zustand
+- **Graphics:** Custom WebGL and Three.js 3D interactive backgrounds
+- **Auth:** Clerk
 
-- **7-Agent AI Pipeline** via LangGraph
-  1. 📋 Startup Intake — extracts structured profile from raw pitch text
-  2. ✅ Business Validation — evaluates problem, solution, scalability
-  3. 📊 Market Intelligence — RAG-powered competitor & trend analysis
-  4. 🎥 Founder Analysis — scores founder from video transcript or written pitch
-  5. 🗺️ Strategy — Business Model Canvas + GTM plan
-  6. 💼 Investor VC — gives Pass/Monitor/Term Sheet verdict + tough questions
-  7. 📄 Report Generation — creates executive summary + PowerPoint pitch deck
+### Backend Engine (Hugging Face Spaces)
+- **Framework:** FastAPI & Uvicorn
+- **AI Orchestration:** LangGraph & LangChain
+- **LLM Provider:** Groq API (Llama 3 70B)
+- **Database:** SQLite & SQLAlchemy (for storing reports)
+- **Containerization:** Docker
 
-- **Context-Aware Negotiation** — Live chat with an AI investor who has read your full evaluation
-- **Multimodal Input** — Upload PDFs, CSVs, MP4 pitch videos
-- **Auto-generated PPT** — Investor-ready pitch deck downloaded automatically
+## ⚙️ How It Works
+1. **Intake:** The founder submits their elevator pitch, target audience, and problem/solution via the Next.js frontend.
+2. **Orchestration:** The data is sent to the FastAPI backend running on Hugging Face Spaces.
+3. **Agent Pipeline:** LangGraph orchestrates the 16 agents to analyze the market, grade the idea, and generate the components of the business plan.
+4. **Delivery:** The structured JSON report is returned to the frontend and rendered in a beautiful, interactive dashboard.
 
----
-
-## 🏗️ Project Structure
-
-```
-startup/
-├── agents/                  # LangGraph agent definitions
-│   ├── state.py             # Shared GraphState schema
-│   ├── orchestrator.py      # LangGraph pipeline builder
-│   ├── core_agents.py       # Agents 1-3 (Intake, Validation, Market)
-│   ├── advanced_agents.py   # Agents 4-7 (Founder, Strategy, Investor, Report)
-│   ├── context_builder.py   # Layer 1: file ingestion → ChromaDB
-│   └── llm_setup.py         # Groq LLM setup
-├── backend/
-│   ├── api/router.py        # FastAPI endpoints (/upload, /evaluate, /negotiate)
-│   ├── core/config.py       # App settings
-│   ├── utils/ppt_generator.py # PowerPoint generator
-│   ├── main.py              # FastAPI app entry point
-│   └── requirements.txt     # Python dependencies
-├── rag/
-│   ├── vectorstore.py       # ChromaDB vector store manager
-│   ├── document_processor.py # PDF/TXT/CSV/DOCX loader + chunker
-│   └── media_processor.py   # Whisper video/audio transcription
-├── frontend/                # Next.js 15 frontend
-│   ├── app/                 # Next.js app router
-│   ├── components/
-│   │   ├── Dashboard.tsx    # Main evaluation form + results display
-│   │   └── NegotiationChat.tsx # Live investor chat (context-aware)
-│   └── store/useStore.ts    # Zustand global state
-└── chroma_db/               # Local vector store (gitignored)
-```
-
----
-
-## 🚀 Quick Start
+## 🚀 Local Development
 
 ### Prerequisites
-- Python 3.10+
 - Node.js 18+
-- A free [Groq API key](https://console.groq.com)
+- Python 3.10+
+- A [Groq API Key](https://console.groq.com/keys)
+- A [Clerk Publishable/Secret Key](https://clerk.com/)
 
-### 1. Backend Setup
-
+### 1. Start the Backend
 ```bash
-cd startup
-
-# Create virtual environment
+cd backend
 python -m venv venv
-venv\Scripts\activate   # Windows
-# source venv/bin/activate  # Mac/Linux
+source venv/bin/activate  # Or `venv\Scripts\activate` on Windows
+pip install -r ../requirements.txt
 
-# Install dependencies
-pip install -r backend/requirements.txt
+# Create a .env file and add your GROQ_API_KEY
+echo "GROQ_API_KEY=your_key_here" > .env
 
-# Set your API key
-copy backend\.env.example backend\.env
-# Edit backend/.env and add your GROQ_API_KEY
-
-# Start the backend
-uvicorn backend.main:app --reload --port 8000
+uvicorn api.router:app --host 0.0.0.0 --port 7860 --reload
 ```
 
-### 2. Frontend Setup
-
+### 2. Start the Frontend
 ```bash
 cd frontend
 npm install
+
+# Create a .env.local file with your Clerk keys and backend URL
+echo "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_..." > .env.local
+echo "CLERK_SECRET_KEY=sk_test_..." >> .env.local
+echo "NEXT_PUBLIC_API_URL=http://localhost:7860" >> .env.local
+
 npm run dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000)
-
----
-
-## 🔑 Environment Variables
-
-Create `backend/.env` based on `backend/.env.example`:
-
-```env
-GROQ_API_KEY=your_groq_api_key_here
-```
-
-Get a free key at [console.groq.com](https://console.groq.com)
+Visit `http://localhost:3000` to view the application!
 
 ---
-
-## 📡 API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/upload` | Upload pitch video/PDF for RAG indexing |
-| POST | `/api/v1/evaluate` | Run all 7 agents on your startup idea |
-| POST | `/api/v1/negotiate` | Chat with context-aware AI investor |
-| GET | `/health` | Health check |
-
----
-
-## 🧠 How It Works
-
-```
-Founder Input (text + optional files)
-        │
-        ▼
-Layer 1: Context Builder
-  → Uploads → ChromaDB vector store (RAG)
-        │
-        ▼
-Layer 2: 7-Agent LangGraph Pipeline
-  Agent 1 → startup_context (structured JSON)
-  Agent 2 → business_validation
-  Agent 3 → market_intelligence (RAG-enriched)
-  Agent 4 → founder_analysis (video or written)
-  Agent 5 → strategy_output (BMC + GTM)
-  Agent 6 → investor_feedback (verdict + questions)
-  Agent 7 → executive_summary + pitch deck PPT
-        │
-        ▼
-Layer 3: Output + Live Negotiation
-  → Frontend displays all results
-  → Investor chat with full evaluation context injected
-```
-
----
-
-## 📦 Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| LLM | Groq (llama-3.1-8b-instant) |
-| Agent Framework | LangGraph + LangChain |
-| Vector Store | ChromaDB (local) |
-| Embeddings | HuggingFace all-MiniLM-L6-v2 |
-| Video/Audio | OpenAI Whisper + MoviePy |
-| Backend | FastAPI + Uvicorn |
-| Frontend | Next.js 15 + Tailwind CSS |
-| State Management | Zustand |
-| Pitch Deck | python-pptx |
-
----
-
-## 📄 License
-
-MIT License — feel free to use and modify.
+*Built with ❤️ by Anvesh*
