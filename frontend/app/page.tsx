@@ -25,7 +25,7 @@ export default function Home() {
       }
       syncSize();
 
-      const gl = (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
+      const gl: any = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
       if (gl) {
         const vs = `attribute vec2 a_position;
 varying vec2 v_texCoord;
