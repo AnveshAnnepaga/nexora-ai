@@ -26,6 +26,11 @@ export default function InvestorDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const internalId = user?.publicMetadata?.internal_id as number | undefined
 
+  // Notification states
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [showNotifications, setShowNotifications] = useState(false)
+
   // Chat State
   const [chatContacts, setChatContacts] = useState<any[]>([])
   const [activeChatId, setActiveChatId] = useState<number | null>(null)
@@ -85,6 +90,42 @@ export default function InvestorDashboard() {
     } catch (e) { console.error(e) } finally { if (showLoading) setIsLoadingThread(false) }
   }
 
+  useEffect(() => {
+    if (activeChatId && internalId) {
+      fetchChatThread(activeChatId, true)
+      const ci = setInterval(() => fetchChatThread(activeChatId, false), 4000)
+      return () => clearInterval(ci)
+    } else {
+      setChatThread([])
+    }
+  }, [activeChatId, internalId])
+
+  useEffect(() => {
+    if (internalId) {
+      fetch(`${API}/api/v1/notifications/count/${internalId}`)
+        .then(res => res.json())
+        .then(data => setUnreadCount(data.unread_count))
+        .catch(console.error)
+    }
+  }, [internalId])
+
+  const handleNotificationClick = async () => {
+    setShowNotifications(!showNotifications)
+    if (!showNotifications && internalId) {
+      try {
+        const res = await fetch(`${API}/api/v1/notifications/${internalId}`)
+        const data = await res.json()
+        setNotifications(data)
+        
+        data.filter((n: any) => !n.is_read).forEach(async (n: any) => {
+          await fetch(`${API}/api/v1/notifications/read/${n.id}`, { method: 'PATCH' })
+        })
+        setUnreadCount(0)
+      } catch (e) {
+        console.error(e)
+      }
+    }
+  }
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chatThread])
 
   useEffect(() => {
@@ -94,14 +135,6 @@ export default function InvestorDashboard() {
       return () => clearInterval(ci)
     }
   }, [activeTab, internalId])
-
-  useEffect(() => {
-    if (activeChatId && internalId) {
-      fetchChatThread(activeChatId, true)
-      const ti = setInterval(() => fetchChatThread(activeChatId, false), 4000)
-      return () => clearInterval(ti)
-    } else { setChatThread([]) }
-  }, [activeChatId, internalId])
 
   const sendChatMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
@@ -206,8 +239,43 @@ export default function InvestorDashboard() {
       <main className="flex-1 p-8 overflow-y-auto">
         <AnimatePresence mode="wait">
           {activeTab === 'browse' && (
-            <motion.div key="browse" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <div className="flex items-center justify-between mb-8">
+            <motion.div key="browse" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative">
+              
+              {/* Top Navigation / Notification Bar */}
+              <div className="absolute right-0 top-0 flex items-center gap-4 z-50">
+                <button onClick={handleNotificationClick} className="relative p-2 text-slate-400 hover:text-white transition-colors bg-[#111827] border border-[#1e2d47] rounded-full">
+                  <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-primary rounded-full glow-cyan border-2 border-[#111827]"></span>
+                  )}
+                </button>
+
+                <AnimatePresence>
+                  {showNotifications && (
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute top-12 right-0 w-80 bg-[#111827] border border-[#1e2d47] rounded-2xl shadow-2xl overflow-hidden z-50">
+                      <div className="p-4 border-b border-[#1e2d47] bg-[#0d1424]">
+                        <h3 className="font-bold text-white">Notifications</h3>
+                      </div>
+                      <div className="max-h-96 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="p-6 text-center text-sm text-slate-500">No notifications yet</div>
+                        ) : (
+                          notifications.map((n) => (
+                            <div key={n.id} className={`p-4 border-b border-[#1e2d47]/50 text-sm ${!n.is_read ? 'bg-primary/5' : ''}`}>
+                              <p className="text-slate-200 mb-1 leading-relaxed">{n.message}</p>
+                              <span className="text-[10px] text-slate-500 font-mono">
+                                {new Date(n.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <div className="flex items-center justify-between mb-8 pr-16">
                 <h1 className="text-3xl font-bold">Startup Deal Flow</h1>
                 <div className="flex gap-4">
                   <div className="relative">

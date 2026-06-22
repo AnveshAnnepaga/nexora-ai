@@ -178,7 +178,7 @@ def get_contacts(user_id: int, db: Session = Depends(get_db)):
         if m.sender_id == contact_id and m.receiver_id == user_id and not m.is_read:
             contacts[contact_id]["unread_count"] += 1
             
-    sorted_contacts = sorted(list(contacts.values()), key=lambda x: x["latest_timestamp"], reverse=True)
+    sorted_contacts = sorted(list(contacts.values()), key=lambda x: x["latest_timestamp"] or datetime.min, reverse=True)
     return sorted_contacts
 
 @router.get("/thread/{user_id}/{contact_id}")
