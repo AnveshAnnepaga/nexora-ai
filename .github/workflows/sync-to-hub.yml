@@ -19,5 +19,15 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           pip install huggingface_hub
-          huggingface-cli login --token $HF_TOKEN
-          huggingface-cli upload annepagaanvesh/nexora-ai-engine . . --repo-type space --exclude ".git/*" --commit-message "Automated sync from GitHub"
+          python -c "
+          from huggingface_hub import HfApi
+          import os
+          api = HfApi(token=os.environ['HF_TOKEN'])
+          api.upload_folder(
+              folder_path='.',
+              repo_id='annepagaanvesh/nexora-ai-engine',
+              repo_type='space',
+              ignore_patterns=['.git/*'],
+              commit_message='Automated sync from GitHub'
+          )
+          "
