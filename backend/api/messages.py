@@ -143,3 +143,66 @@ def get_sent(user_id: int, db: Session = Depends(get_db)):
             "is_read": m.is_read
         })
     return result
+
+from sqlalchemy import or_, and_
+
+@router.get("/contacts/{user_id}")
+def get_contacts(user_id: int, db: Session = Depends(get_db)):
+    msgs = db.query(Message).filter(or_(Message.sender_id == user_id, Message.receiver_id == user_id)).order_by(desc(Message.timestamp)).all()
+    
+    current_user = db.query(User).filter(User.id == user_id).first()
+    is_investor = current_user and current_user.role == "investor"
+
+    contacts = {}
+    for m in msgs:
+        contact_id = m.sender_id if m.receiver_id == user_id else m.receiver_id
+        
+        if contact_id not in contacts:
+            contact_user = db.query(User).filter(User.id == contact_id).first()
+            if not contact_user:
+                continue
+                
+            display_name = contact_user.full_name or "Anonymous"
+            if is_investor and contact_user.role == "entrepreneur":
+                display_name = display_name.split()[0] if display_name else "Anonymous"
+                
+            contacts[contact_id] = {
+                "contact_id": contact_id,
+                "contact_name": display_name,
+                "contact_role": contact_user.role,
+                "latest_message": m.message,
+                "latest_timestamp": m.timestamp,
+                "unread_count": 0
+            }
+            
+        if m.sender_id == contact_id and m.receiver_id == user_id and not m.is_read:
+            contacts[contact_id]["unread_count"] += 1
+            
+    sorted_contacts = sorted(list(contacts.values()), key=lambda x: x["latest_timestamp"], reverse=True)
+    return sorted_contacts
+
+@router.get("/thread/{user_id}/{contact_id}")
+def get_thread(user_id: int, contact_id: int, db: Session = Depends(get_db)):
+    msgs = db.query(Message).filter(
+        or_(
+            and_(Message.sender_id == user_id, Message.receiver_id == contact_id),
+            and_(Message.sender_id == contact_id, Message.receiver_id == user_id)
+        )
+    ).order_by(Message.timestamp.asc()).all()
+    
+    for m in msgs:
+        if m.receiver_id == user_id and not m.is_read:
+            m.is_read = True
+    db.commit()
+    
+    result = []
+    for m in msgs:
+        result.append({
+            "id": m.id,
+            "sender_id": m.sender_id,
+            "receiver_id": m.receiver_id,
+            "message": m.message,
+            "timestamp": m.timestamp,
+            "is_read": m.is_read
+        })
+    return result

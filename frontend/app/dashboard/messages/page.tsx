@@ -1,187 +1,360 @@
 "use client"
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Loader2, Mail, Send, CheckCircle2 } from 'lucide-react'
+import { Loader2, Send, Search, MessageSquare } from 'lucide-react'
+
+interface Contact {
+  contact_id: number;
+  contact_name: string;
+  contact_role: string;
+  latest_message: string;
+  latest_timestamp: string;
+  unread_count: number;
+}
+
+interface Message {
+  id: number;
+  sender_id: number;
+  receiver_id: number;
+  message: string;
+  timestamp: string;
+  is_read: boolean;
+}
+
+// Generate a consistent color from a name
+function getAvatarColor(name: string): string {
+  const colors = [
+    'bg-violet-600', 'bg-emerald-600', 'bg-rose-600', 'bg-amber-600',
+    'bg-sky-600', 'bg-pink-600', 'bg-teal-600', 'bg-orange-600',
+  ]
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return colors[Math.abs(hash) % colors.length]
+}
+
+function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {
+  const initials = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+  const color = getAvatarColor(name)
+  const sizeClass = size === 'sm' ? 'w-9 h-9 text-sm' : 'w-11 h-11 text-base'
+  return (
+    <div className={`${sizeClass} ${color} rounded-full flex items-center justify-center font-bold text-white shrink-0`}>
+      {initials}
+    </div>
+  )
+}
+
+function formatTime(ts: string) {
+  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatSidebarTime(ts: string) {
+  const date = new Date(ts)
+  const now = new Date()
+  const isToday = date.toDateString() === now.toDateString()
+  if (isToday) return formatTime(ts)
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
 
 export default function MessagesPage() {
   const { isLoaded, user } = useUser()
-  const [inbox, setInbox] = useState<any[]>([])
-  const [sent, setSent] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'inbox' | 'sent'>('inbox')
   const internalId = user?.publicMetadata?.internal_id as number | undefined
 
-  // Contact Modal State
-  const [contactModalOpen, setContactModalOpen] = useState(false)
-  const [selectedInvestorId, setSelectedInvestorId] = useState<number | null>(null)
-  const [selectedIdeaId, setSelectedIdeaId] = useState<number | null>(null)
-  const [contactSubject, setContactSubject] = useState('')
-  const [contactMessage, setContactMessage] = useState('')
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [activeContactId, setActiveContactId] = useState<number | null>(null)
+  const [thread, setThread] = useState<Message[]>([])
+  const [newMessage, setNewMessage] = useState('')
+  const [isLoadingContacts, setIsLoadingContacts] = useState(true)
+  const [isLoadingThread, setIsLoadingThread] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [activeFilter, setActiveFilter] = useState<'all' | 'unread'>('all')
+
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const API = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+
+  const fetchContacts = async () => {
+    if (!internalId) return
+    try {
+      const res = await fetch(`${API}/api/v1/messages/contacts/${internalId}`)
+      if (res.ok) setContacts(await res.json())
+    } catch (e) {
+      console.error("Failed to fetch contacts", e)
+    } finally {
+      setIsLoadingContacts(false)
+    }
+  }
+
+  const fetchThread = async (contactId: number, showLoading = true) => {
+    if (!internalId) return
+    if (showLoading) setIsLoadingThread(true)
+    try {
+      const res = await fetch(`${API}/api/v1/messages/thread/${internalId}/${contactId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setThread(prev => {
+          if (prev.length !== data.length || showLoading) return data
+          return prev
+        })
+      }
+    } catch (e) {
+      console.error("Failed to fetch thread", e)
+    } finally {
+      if (showLoading) setIsLoadingThread(false)
+    }
+  }
 
   useEffect(() => {
     if (isLoaded && internalId) {
-      fetchData()
+      fetchContacts()
+      const interval = setInterval(fetchContacts, 8000)
+      return () => clearInterval(interval)
     }
   }, [isLoaded, internalId])
 
-  const fetchData = async () => {
-    try {
-      const [inboxRes, sentRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/v1/messages/inbox/${internalId}`),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/v1/messages/sent/${internalId}`)
-      ])
-      setInbox(await inboxRes.json())
-      setSent(await sentRes.json())
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setIsLoading(false)
+  useEffect(() => {
+    if (activeContactId && internalId) {
+      fetchThread(activeContactId, true)
+      inputRef.current?.focus()
+      const interval = setInterval(() => fetchThread(activeContactId, false), 4000)
+      return () => clearInterval(interval)
+    } else {
+      setThread([])
     }
-  }
+  }, [activeContactId, internalId])
 
-  const markAsRead = async (id: number) => {
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/v1/messages/read/${id}`, { method: 'PATCH' })
-      setInbox(inbox.map(m => m.id === id ? { ...m, is_read: true } : m))
-    } catch (e) {
-      console.error(e)
-    }
-  }
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [thread])
 
-  const handleReply = (senderId: number, ideaId: number, originalSubject: string) => {
-    setSelectedInvestorId(senderId)
-    setSelectedIdeaId(ideaId)
-    setContactSubject(originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject}`)
-    setContactModalOpen(true)
-  }
-
-  const sendReply = async () => {
-    if (!contactMessage) return alert("Please enter a message.")
+  const handleSend = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!newMessage.trim() || !activeContactId || !internalId) return
     setIsSending(true)
+    const msgText = newMessage.trim()
+    setNewMessage('')
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/v1/messages/send`, {
+      await fetch(`${API}/api/v1/messages/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sender_id: internalId,
-          receiver_id: selectedInvestorId,
-          idea_id: selectedIdeaId,
-          subject: contactSubject,
-          message: contactMessage
-        })
+        body: JSON.stringify({ sender_id: internalId, receiver_id: activeContactId, subject: 'Chat', message: msgText })
       })
-      setContactModalOpen(false)
-      setContactMessage('')
-      alert("Reply sent successfully!")
-      fetchData()
+      fetchThread(activeContactId, false)
+      fetchContacts()
     } catch (e) {
-      console.error(e)
+      console.error("Send failed", e)
     } finally {
       setIsSending(false)
+      inputRef.current?.focus()
     }
   }
 
-  if (isLoading) return <div className="flex p-8 justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+  const filteredContacts = contacts.filter(c => {
+    const matchesSearch = c.contact_name.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesFilter = activeFilter === 'all' || (activeFilter === 'unread' && c.unread_count > 0)
+    return matchesSearch && matchesFilter
+  })
+
+  const activeContact = contacts.find(c => c.contact_id === activeContactId)
+
+  if (isLoadingContacts) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-80px)]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold font-orbitron mb-8">Messages</h1>
-
-      <div className="flex gap-4 mb-6 border-b border-[#1e2d47] pb-2">
-        <button onClick={() => setActiveTab('inbox')} className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all border-b-2 ${activeTab === 'inbox' ? 'border-primary text-primary' : 'border-transparent text-slate-400 hover:text-white'}`}>
-          <Mail className="w-4 h-4" /> Inbox
-          {inbox.filter(m => !m.is_read).length > 0 && (
-            <span className="bg-primary text-[#0a0c14] text-[10px] px-1.5 py-0.5 rounded-full">{inbox.filter(m => !m.is_read).length}</span>
-          )}
-        </button>
-        <button onClick={() => setActiveTab('sent')} className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all border-b-2 ${activeTab === 'sent' ? 'border-primary text-primary' : 'border-transparent text-slate-400 hover:text-white'}`}>
-          <Send className="w-4 h-4" /> Sent
-        </button>
+    <div className="h-[calc(100vh-64px)] flex flex-col px-4 pb-4 pt-0">
+      {/* Header */}
+      <div className="py-4 shrink-0">
+        <h1 className="text-2xl font-bold font-orbitron text-white">Messages</h1>
       </div>
 
-      <AnimatePresence mode="wait">
-        {activeTab === 'inbox' && (
-          <motion.div key="inbox" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
-            {inbox.map(msg => (
-              <div key={msg.id} onClick={() => !msg.is_read && markAsRead(msg.id)} className={`bg-[#111827] border p-5 rounded-xl transition-all cursor-pointer ${msg.is_read ? 'border-[#1e2d47]' : 'border-primary/50 shadow-[0_0_15px_rgba(0,212,255,0.1)]'}`}>
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center gap-3">
-                    {!msg.is_read && <span className="w-2 h-2 bg-primary rounded-full glow-cyan"></span>}
-                    <h3 className="font-bold text-white text-lg">{msg.sender_name}</h3>
-                    <span className="text-slate-500 text-sm">{msg.subject}</span>
-                  </div>
-                  <span className="text-xs text-slate-500">{new Date(msg.timestamp).toLocaleString()}</span>
-                </div>
-                <div className="mt-4 bg-[#0d1424] p-4 rounded-lg border border-[#1e2d47]">
-                  <p className="text-sm text-slate-300 whitespace-pre-wrap">{msg.message}</p>
-                </div>
-                <div className="mt-4 flex justify-end">
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleReply(msg.sender_id, msg.idea_id, msg.subject)
-                    }} 
-                    className="text-sm text-primary hover:text-primary/80 font-medium flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-lg border border-primary/20 transition-all"
-                  >
-                    <Send className="w-4 h-4" /> Reply
-                  </button>
-                </div>
-              </div>
-            ))}
-            {inbox.length === 0 && <p className="text-slate-500 text-center py-10">Your inbox is empty.</p>}
-          </motion.div>
-        )}
+      {/* Main chat layout */}
+      <div className="flex-1 flex rounded-2xl overflow-hidden border border-[#1e2d47] shadow-2xl min-h-0">
 
-        {activeTab === 'sent' && (
-          <motion.div key="sent" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
-            {sent.map(msg => (
-              <div key={msg.id} className="bg-[#111827] border border-[#1e2d47] p-5 rounded-xl">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    <h3 className="font-bold text-white text-lg">To: {msg.receiver_name}</h3>
-                    <span className="text-slate-500 text-sm">{msg.subject}</span>
-                  </div>
-                  <span className="text-xs text-slate-500">{new Date(msg.timestamp).toLocaleString()}</span>
-                </div>
-                <div className="mt-4 bg-[#0d1424] p-4 rounded-lg border border-[#1e2d47]">
-                  <p className="text-sm text-slate-300 whitespace-pre-wrap">{msg.message}</p>
-                </div>
-              </div>
-            ))}
-            {sent.length === 0 && <p className="text-slate-500 text-center py-10">You haven't sent any messages.</p>}
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {/* ── Left Sidebar ── */}
+        <div className={`flex flex-col bg-[#111827] border-r border-[#1e2d47] w-full md:w-[340px] shrink-0 ${activeContactId ? 'hidden md:flex' : 'flex'}`}>
 
-      <AnimatePresence>
-        {contactModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#111827] border border-[#1e2d47] rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
-              <button onClick={() => setContactModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button>
-              <h2 className="text-xl font-bold text-white mb-1">Reply to Message</h2>
-              <p className="text-sm text-slate-400 mb-6">Send a reply back directly.</p>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">SUBJECT</label>
-                  <input value={contactSubject} onChange={e => setContactSubject(e.target.value)} className="w-full bg-[#0d1424] border border-[#1e2d47] rounded-lg px-4 py-2.5 text-white outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">MESSAGE</label>
-                  <textarea value={contactMessage} onChange={e => setContactMessage(e.target.value)} placeholder="Type your reply here..." className="w-full bg-[#0d1424] border border-[#1e2d47] rounded-lg px-4 py-2.5 text-white outline-none min-h-[120px]" />
-                </div>
-                <button onClick={sendReply} disabled={isSending} className="w-full bg-primary hover:bg-primary/90 text-[#0a0c14] font-bold py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(0,212,255,0.4)] flex justify-center items-center gap-2">
-                  {isSending && <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>}
-                  Send Reply
+          {/* Sidebar Header */}
+          <div className="p-4 border-b border-[#1e2d47] bg-[#0d1424] shrink-0">
+            <h2 className="text-lg font-bold text-white mb-3">Chats</h2>
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search or start new chat"
+                className="w-full bg-[#1e2d47] text-white text-sm pl-9 pr-4 py-2.5 rounded-lg outline-none placeholder:text-slate-500 focus:ring-1 focus:ring-primary/40 transition-all"
+              />
+            </div>
+            {/* Filters */}
+            <div className="flex gap-2 mt-3">
+              {(['all', 'unread'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setActiveFilter(f)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all ${activeFilter === f ? 'bg-primary text-[#0a0c14]' : 'bg-[#1e2d47] text-slate-400 hover:text-white'}`}
+                >
+                  {f}
+                  {f === 'unread' && contacts.filter(c => c.unread_count > 0).length > 0 && (
+                    <span className="ml-1 text-[10px]">({contacts.filter(c => c.unread_count > 0).length})</span>
+                  )}
                 </button>
-              </div>
-            </motion.div>
+              ))}
+            </div>
           </div>
-        )}
-      </AnimatePresence>
+
+          {/* Contact List */}
+          <div className="flex-1 overflow-y-auto">
+            {filteredContacts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-2 p-6 text-center">
+                <MessageSquare className="w-10 h-10 opacity-40" />
+                <p className="text-sm">{searchQuery ? 'No contacts found' : 'No conversations yet'}</p>
+              </div>
+            ) : (
+              filteredContacts.map(contact => (
+                <div
+                  key={contact.contact_id}
+                  onClick={() => setActiveContactId(contact.contact_id)}
+                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-all border-b border-[#1e2d47]/40 hover:bg-[#1a253a] ${activeContactId === contact.contact_id ? 'bg-[#1a253a]' : ''}`}
+                >
+                  <Avatar name={contact.contact_name} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-baseline">
+                      <span className="font-semibold text-white text-sm truncate">{contact.contact_name}</span>
+                      <span className={`text-[11px] shrink-0 ml-2 ${contact.unread_count > 0 ? 'text-primary font-semibold' : 'text-slate-500'}`}>
+                        {formatSidebarTime(contact.latest_timestamp)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center mt-0.5">
+                      <p className="text-xs text-slate-400 truncate pr-2">{contact.latest_message}</p>
+                      {contact.unread_count > 0 && (
+                        <span className="shrink-0 bg-primary text-[#0a0c14] text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                          {contact.unread_count}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-600 capitalize">{contact.contact_role}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* ── Right Chat Window ── */}
+        <div className={`flex-1 flex flex-col min-w-0 ${!activeContactId ? 'hidden md:flex' : 'flex'}`}
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%231e2d47' fill-opacity='0.25'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            backgroundColor: '#0a0c14',
+          }}
+        >
+          {!activeContactId ? (
+            /* Empty State */
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-500">
+              <div className="w-20 h-20 rounded-full bg-[#1e2d47]/60 flex items-center justify-center mb-5">
+                <MessageSquare className="w-9 h-9 text-slate-400" />
+              </div>
+              <h3 className="text-white font-semibold text-lg mb-1">Nexora Messages</h3>
+              <p className="text-sm text-center max-w-xs">Select a conversation from the list to start chatting with a founder or investor.</p>
+            </div>
+          ) : (
+            <>
+              {/* Chat Header */}
+              <div className="flex items-center gap-3 px-4 py-3 bg-[#111827] border-b border-[#1e2d47] shrink-0">
+                <button onClick={() => setActiveContactId(null)} className="md:hidden text-slate-400 hover:text-white mr-1">
+                  <span className="material-symbols-outlined text-xl">arrow_back_ios</span>
+                </button>
+                {activeContact && <Avatar name={activeContact.contact_name} size="sm" />}
+                <div>
+                  <h2 className="font-semibold text-white leading-tight">{activeContact?.contact_name}</h2>
+                  <p className="text-[11px] text-slate-400 capitalize">{activeContact?.contact_role}</p>
+                </div>
+              </div>
+
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
+                {isLoadingThread ? (
+                  <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+                ) : (
+                  <>
+                    {thread.length === 0 && (
+                      <div className="flex justify-center py-10">
+                        <span className="text-xs bg-[#1e2d47]/80 text-slate-400 px-4 py-2 rounded-full">
+                          Say hello to {activeContact?.contact_name}! 👋
+                        </span>
+                      </div>
+                    )}
+                    {thread.map((msg, i) => {
+                      const isMe = msg.sender_id === internalId
+                      const prevMsg = thread[i - 1]
+                      const showDate = i === 0 || new Date(msg.timestamp).toDateString() !== new Date(prevMsg.timestamp).toDateString()
+
+                      return (
+                        <div key={msg.id}>
+                          {showDate && (
+                            <div className="flex justify-center my-4">
+                              <span className="text-[11px] bg-[#1e2d47]/90 text-slate-300 px-3 py-1 rounded-full backdrop-blur-sm">
+                                {new Date(msg.timestamp).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+                              </span>
+                            </div>
+                          )}
+                          <div className={`flex mb-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                            <div
+                              className={`relative max-w-[70%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${
+                                isMe
+                                  ? 'bg-primary text-[#0a0c14] rounded-br-sm'
+                                  : 'bg-[#1e2d47] text-slate-100 rounded-bl-sm'
+                              }`}
+                            >
+                              <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                              <span className={`text-[10px] mt-1 flex items-center gap-1 ${isMe ? 'justify-end text-[#0a0c14]/60' : 'text-slate-500'}`}>
+                                {formatTime(msg.timestamp)}
+                                {isMe && (
+                                  <span className="text-[10px]">{msg.is_read ? '✓✓' : '✓'}</span>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    <div ref={messagesEndRef} />
+                  </>
+                )}
+              </div>
+
+              {/* Input Area */}
+              <div className="shrink-0 bg-[#111827] border-t border-[#1e2d47] px-4 py-3">
+                <form onSubmit={handleSend} className="flex items-center gap-3">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={newMessage}
+                    onChange={e => setNewMessage(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+                    placeholder="Type a message"
+                    className="flex-1 bg-[#1e2d47] text-white text-sm px-5 py-3 rounded-full outline-none placeholder:text-slate-500 focus:ring-1 focus:ring-primary/40 transition-all"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newMessage.trim() || isSending}
+                    className="w-11 h-11 rounded-full bg-primary hover:bg-primary/90 text-[#0a0c14] flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                  >
+                    {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 ml-0.5" />}
+                  </button>
+                </form>
+              </div>
+            </>
+          )}
+        </div>
+
+      </div>
     </div>
   )
 }

@@ -24,3 +24,4 @@ pdfplumber
 docx2txt
 beautifulsoup4
 celery
+sentence-transformers

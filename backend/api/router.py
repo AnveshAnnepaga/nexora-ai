@@ -4,6 +4,7 @@ Endpoints: /upload, /evaluate (full pipeline), /interrogate (investor chat)
 """
 import os
 import json
+import httpx
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -45,6 +46,53 @@ async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File
 
     background_tasks.add_task(process, file_path)
     return {"message": "File uploaded and processing started.", "filename": file.filename}
+
+
+@router.post("/transcribe")
+async def transcribe_media(file: UploadFile = File(...)):
+    """
+    Transcribes an uploaded video or audio file using the Groq Whisper API.
+    """
+    from agents.llm_setup import _get_key
+    api_key = _get_key()
+    
+    if not api_key:
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY is not configured.")
+    
+    # Read the file data
+    file_bytes = await file.read()
+    
+    # Send to Groq
+    url = "https://api.groq.com/openai/v1/audio/transcriptions"
+    headers = {
+        "Authorization": f"Bearer {api_key}"
+    }
+    
+    # Create the multipart form data for httpx
+    # Groq whisper requires file, model
+    files = {
+        "file": (file.filename or "recording.webm", file_bytes, file.content_type or "audio/webm")
+    }
+    data = {
+        "model": "whisper-large-v3",
+        "response_format": "json"
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, headers=headers, files=files, data=data)
+            response.raise_for_status()
+            
+            result = response.json()
+            transcript = result.get("text", "")
+            
+            return {"transcript": transcript}
+    except httpx.HTTPStatusError as e:
+        print(f"Groq API Error: {e.response.text}")
+        raise HTTPException(status_code=502, detail=f"Transcription failed: {e.response.text}")
+    except Exception as e:
+        print(f"Transcription error: {str(e)}")
+        raise HTTPException(status_code=500, detail="An error occurred during transcription.")
 
 
 # ─────────────────────────────────────────────────────────────

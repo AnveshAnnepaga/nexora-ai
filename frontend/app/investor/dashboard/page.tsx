@@ -1,23 +1,42 @@
 "use client"
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser, useClerk } from '@clerk/nextjs'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Filter, Mail, Briefcase, Star, Clock, FileText, Send, User } from 'lucide-react'
+import { Search, Filter, Mail, Briefcase, Star, Clock, FileText, Send, User, Loader2, MessageSquare } from 'lucide-react'
+
+function getAvatarColor(name: string): string {
+  const colors = ['bg-violet-600','bg-emerald-600','bg-rose-600','bg-amber-600','bg-sky-600','bg-pink-600','bg-teal-600','bg-orange-600']
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return colors[Math.abs(hash) % colors.length]
+}
+function ChatAvatar({ name }: { name: string }) {
+  const initials = name.split(' ').map((w: string) => w[0]).slice(0,2).join('').toUpperCase()
+  return <div className={`w-10 h-10 ${getAvatarColor(name)} rounded-full flex items-center justify-center font-bold text-white shrink-0 text-sm`}>{initials}</div>
+}
 
 export default function InvestorDashboard() {
   const router = useRouter()
   const { isLoaded, isSignedIn, user } = useUser()
   const { signOut } = useClerk()
-  const [activeTab, setActiveTab] = useState<'browse' | 'contacts' | 'inbox' | 'profile'>('browse')
+  const [activeTab, setActiveTab] = useState<'browse' | 'messages' | 'profile'>('browse')
 
   const [ideas, setIdeas] = useState<any[]>([])
-  const [inbox, setInbox] = useState<any[]>([])
-  const [sent, setSent] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const internalId = user?.publicMetadata?.internal_id as number | undefined
 
-  // Contact Modal State
+  // Chat State
+  const [chatContacts, setChatContacts] = useState<any[]>([])
+  const [activeChatId, setActiveChatId] = useState<number | null>(null)
+  const [chatThread, setChatThread] = useState<any[]>([])
+  const [chatMessage, setChatMessage] = useState('')
+  const [isSendingChat, setIsSendingChat] = useState(false)
+  const [isLoadingThread, setIsLoadingThread] = useState(false)
+  const [chatSearch, setChatSearch] = useState('')
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Contact Founder Modal
   const [contactModalOpen, setContactModalOpen] = useState(false)
   const [selectedFounderId, setSelectedFounderId] = useState<number | null>(null)
   const [selectedIdeaId, setSelectedIdeaId] = useState<number | null>(null)
@@ -39,22 +58,61 @@ export default function InvestorDashboard() {
     }
   }, [isLoaded, isSignedIn, user, router])
 
+  const API = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+
   const fetchData = async () => {
     setIsLoading(true)
     try {
-      const [ideasRes, inboxRes, sentRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/v1/ideas/public`),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/v1/messages/inbox/${internalId}`),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/v1/messages/sent/${internalId}`)
-      ])
+      const ideasRes = await fetch(`${API}/api/v1/ideas/public`)
       if (ideasRes.ok) setIdeas(await ideasRes.json())
-      if (inboxRes.ok) setInbox(await inboxRes.json())
-      if (sentRes.ok) setSent(await sentRes.json())
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setIsLoading(false)
+    } catch (e) { console.error(e) } finally { setIsLoading(false) }
+  }
+
+  const fetchChatContacts = async () => {
+    if (!internalId) return
+    try {
+      const res = await fetch(`${API}/api/v1/messages/contacts/${internalId}`)
+      if (res.ok) setChatContacts(await res.json())
+    } catch (e) { console.error(e) }
+  }
+
+  const fetchChatThread = async (contactId: number, showLoading = true) => {
+    if (!internalId) return
+    if (showLoading) setIsLoadingThread(true)
+    try {
+      const res = await fetch(`${API}/api/v1/messages/thread/${internalId}/${contactId}`)
+      if (res.ok) { const data = await res.json(); setChatThread(prev => prev.length !== data.length || showLoading ? data : prev) }
+    } catch (e) { console.error(e) } finally { if (showLoading) setIsLoadingThread(false) }
+  }
+
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chatThread])
+
+  useEffect(() => {
+    if (activeTab === 'messages' && internalId) {
+      fetchChatContacts()
+      const ci = setInterval(fetchChatContacts, 8000)
+      return () => clearInterval(ci)
     }
+  }, [activeTab, internalId])
+
+  useEffect(() => {
+    if (activeChatId && internalId) {
+      fetchChatThread(activeChatId, true)
+      const ti = setInterval(() => fetchChatThread(activeChatId, false), 4000)
+      return () => clearInterval(ti)
+    } else { setChatThread([]) }
+  }, [activeChatId, internalId])
+
+  const sendChatMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!chatMessage.trim() || !activeChatId || !internalId) return
+    setIsSendingChat(true)
+    const text = chatMessage.trim(); setChatMessage('')
+    try {
+      await fetch(`${API}/api/v1/messages/send`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sender_id: internalId, receiver_id: activeChatId, subject: 'Chat', message: text }) })
+      fetchChatThread(activeChatId, false); fetchChatContacts()
+    } catch (e) { console.error(e) } finally { setIsSendingChat(false) }
   }
 
   const handleContactFounder = (founderId: number, ideaId: number, ideaTitle: string) => {
@@ -124,12 +182,9 @@ export default function InvestorDashboard() {
           <button onClick={() => setActiveTab('browse')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'browse' ? 'bg-primary/20 text-primary border border-primary/30 glow-cyan' : 'text-slate-400 hover:bg-[#1e2d47]'}`}>
             <Briefcase className="w-4 h-4" /> Browse Ideas
           </button>
-          <button onClick={() => setActiveTab('contacts')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'contacts' ? 'bg-primary/20 text-primary border border-primary/30 glow-cyan' : 'text-slate-400 hover:bg-[#1e2d47]'}`}>
-            <Star className="w-4 h-4" /> My Contacts
-          </button>
-          <button onClick={() => setActiveTab('inbox')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'inbox' ? 'bg-primary/20 text-primary border border-primary/30 glow-cyan' : 'text-slate-400 hover:bg-[#1e2d47]'}`}>
-            <Mail className="w-4 h-4" /> Messages Inbox
-            {inbox.filter(m => !m.is_read).length > 0 && <span className="ml-auto bg-primary text-[#0a0c14] text-[10px] px-1.5 py-0.5 rounded-full">{inbox.filter(m => !m.is_read).length}</span>}
+          <button onClick={() => setActiveTab('messages')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'messages' ? 'bg-primary/20 text-primary border border-primary/30 glow-cyan' : 'text-slate-400 hover:bg-[#1e2d47]'}`}>
+            <MessageSquare className="w-4 h-4" /> Messages
+            {chatContacts.reduce((sum: number, c: any) => sum + (c.unread_count || 0), 0) > 0 && <span className="ml-auto bg-primary text-[#0a0c14] text-[10px] px-1.5 py-0.5 rounded-full">{chatContacts.reduce((sum: number, c: any) => sum + (c.unread_count || 0), 0)}</span>}
           </button>
           <button onClick={() => router.push('/profile/complete')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-slate-400 hover:bg-[#1e2d47]`}>
             <User className="w-4 h-4" /> Profile Settings
@@ -199,52 +254,93 @@ export default function InvestorDashboard() {
             </motion.div>
           )}
 
-          {activeTab === 'inbox' && (
-            <motion.div key="inbox" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <h1 className="text-3xl font-bold mb-8">Messages Inbox</h1>
-              <div className="space-y-4">
-                {inbox.map(msg => (
-                  <div key={msg.id} className="bg-[#111827] border border-[#1e2d47] p-5 rounded-xl">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <span className="font-semibold">{msg.sender_name}</span>
-                        <span className="text-slate-500 text-sm ml-2">- {msg.subject}</span>
+          {activeTab === 'messages' && (
+            <motion.div key="messages" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-[calc(100vh-120px)] flex rounded-2xl overflow-hidden border border-[#1e2d47] shadow-2xl">
+              {/* Left Sidebar */}
+              <div className={`flex flex-col bg-[#111827] border-r border-[#1e2d47] w-[300px] shrink-0 ${activeChatId ? 'hidden md:flex' : 'flex'}`}>
+                <div className="p-4 border-b border-[#1e2d47] bg-[#0d1424]">
+                  <h2 className="font-bold text-white mb-3">Conversations</h2>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input value={chatSearch} onChange={e => setChatSearch(e.target.value)} placeholder="Search..." className="w-full bg-[#1e2d47] text-white text-sm pl-9 pr-4 py-2 rounded-lg outline-none placeholder:text-slate-500" />
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {chatContacts.filter((c: any) => c.contact_name.toLowerCase().includes(chatSearch.toLowerCase())).length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-500 p-6 text-center">
+                      <MessageSquare className="w-8 h-8 opacity-40 mb-2" />
+                      <p className="text-sm">No conversations yet</p>
+                    </div>
+                  ) : chatContacts.filter((c: any) => c.contact_name.toLowerCase().includes(chatSearch.toLowerCase())).map((contact: any) => (
+                    <div key={contact.contact_id} onClick={() => setActiveChatId(contact.contact_id)}
+                      className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-all border-b border-[#1e2d47]/40 hover:bg-[#1a253a] ${activeChatId === contact.contact_id ? 'bg-[#1a253a]' : ''}`}>
+                      <ChatAvatar name={contact.contact_name} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-baseline">
+                          <span className="font-semibold text-white text-sm truncate">{contact.contact_name}</span>
+                          <span className={`text-[11px] shrink-0 ml-2 ${contact.unread_count > 0 ? 'text-primary font-semibold' : 'text-slate-500'}`}>{new Date(contact.latest_timestamp).toLocaleDateString(undefined, {month:'short',day:'numeric'})}</span>
+                        </div>
+                        <div className="flex justify-between items-center mt-0.5">
+                          <p className="text-xs text-slate-400 truncate pr-2">{contact.latest_message}</p>
+                          {contact.unread_count > 0 && <span className="shrink-0 bg-primary text-[#0a0c14] text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{contact.unread_count}</span>}
+                        </div>
                       </div>
-                      <span className="text-xs text-slate-500">{new Date(msg.timestamp).toLocaleString()}</span>
                     </div>
-                    <p className="text-sm text-slate-300 mt-2 bg-[#0d1424] p-4 rounded-lg">{msg.message}</p>
-                    <button onClick={() => {
-                        setSelectedFounderId(msg.sender_id)
-                        setSelectedIdeaId(msg.idea_id)
-                        setContactSubject(msg.subject.startsWith('Re:') ? msg.subject : `Re: ${msg.subject}`)
-                        setContactModalOpen(true)
-                    }} className="mt-4 text-sm text-purple-400 hover:text-purple-300 font-medium flex items-center gap-2">
-                      <Send className="w-4 h-4" /> Reply
-                    </button>
-                  </div>
-                ))}
-                {inbox.length === 0 && <p className="text-slate-500">Your inbox is empty.</p>}
+                  ))}
+                </div>
               </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'contacts' && (
-            <motion.div key="contacts" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <h1 className="text-3xl font-bold mb-8">My Contacts</h1>
-              <div className="space-y-4">
-                {sent.map(msg => (
-                  <div key={msg.id} className="bg-[#111827] border border-[#1e2d47] p-5 rounded-xl flex justify-between items-center">
-                    <div>
-                      <h3 className="font-bold text-white mb-1">To: {msg.receiver_name ? msg.receiver_name.split(' ')[0] : 'Anonymous'}</h3>
-                      <p className="text-sm text-slate-400">Subject: {msg.subject}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs text-slate-500 block mb-1">Sent {new Date(msg.timestamp).toLocaleDateString()}</span>
-                      <span className="text-xs font-medium bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full">Sent</span>
-                    </div>
+              {/* Right Chat */}
+              <div className={`flex-1 flex flex-col min-w-0 bg-[#0a0c14] ${!activeChatId ? 'hidden md:flex' : 'flex'}`}
+                style={{backgroundImage:`url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%231e2d47' fill-opacity='0.25'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`}}>
+                {!activeChatId ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-slate-500">
+                    <div className="w-16 h-16 rounded-full bg-[#1e2d47]/60 flex items-center justify-center mb-4"><MessageSquare className="w-7 h-7 text-slate-400" /></div>
+                    <p className="text-sm">Select a conversation to chat</p>
                   </div>
-                ))}
-                {sent.length === 0 && <p className="text-slate-500">You haven't contacted any founders yet.</p>}
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 px-4 py-3 bg-[#111827] border-b border-[#1e2d47] shrink-0">
+                      <button onClick={() => setActiveChatId(null)} className="md:hidden text-slate-400 hover:text-white mr-1"><span className="material-symbols-outlined text-xl">arrow_back_ios</span></button>
+                      {chatContacts.find((c: any) => c.contact_id === activeChatId) && <ChatAvatar name={chatContacts.find((c: any) => c.contact_id === activeChatId).contact_name} />}
+                      <div>
+                        <h2 className="font-semibold text-white leading-tight">{chatContacts.find((c: any) => c.contact_id === activeChatId)?.contact_name}</h2>
+                        <p className="text-[11px] text-slate-400 capitalize">{chatContacts.find((c: any) => c.contact_id === activeChatId)?.contact_role}</p>
+                      </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto px-4 py-4">
+                      {isLoadingThread ? <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div> : (
+                        <>
+                          {chatThread.length === 0 && <div className="flex justify-center py-10"><span className="text-xs bg-[#1e2d47]/80 text-slate-400 px-4 py-2 rounded-full">Start the conversation!</span></div>}
+                          {chatThread.map((msg: any, i: number) => {
+                            const isMe = msg.sender_id === internalId
+                            const prev = chatThread[i - 1]
+                            const showDate = i === 0 || new Date(msg.timestamp).toDateString() !== new Date(prev.timestamp).toDateString()
+                            return (
+                              <div key={msg.id}>
+                                {showDate && <div className="flex justify-center my-4"><span className="text-[11px] bg-[#1e2d47]/90 text-slate-300 px-3 py-1 rounded-full">{new Date(msg.timestamp).toLocaleDateString(undefined, {weekday:'long',month:'long',day:'numeric'})}</span></div>}
+                                <div className={`flex mb-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                  <div className={`max-w-[70%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${isMe ? 'bg-primary text-[#0a0c14] rounded-br-sm' : 'bg-[#1e2d47] text-slate-100 rounded-bl-sm'}`}>
+                                    <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                                    <span className={`text-[10px] mt-1 flex justify-end ${isMe ? 'text-[#0a0c14]/60' : 'text-slate-500'}`}>{new Date(msg.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} {isMe && (msg.is_read ? '✓✓' : '✓')}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                          <div ref={messagesEndRef} />
+                        </>
+                      )}
+                    </div>
+                    <div className="shrink-0 bg-[#111827] border-t border-[#1e2d47] px-4 py-3">
+                      <form onSubmit={sendChatMessage} className="flex items-center gap-3">
+                        <input value={chatMessage} onChange={e => setChatMessage(e.target.value)} placeholder="Type a message" className="flex-1 bg-[#1e2d47] text-white text-sm px-5 py-3 rounded-full outline-none placeholder:text-slate-500 focus:ring-1 focus:ring-primary/40" />
+                        <button type="submit" disabled={!chatMessage.trim() || isSendingChat} className="w-11 h-11 rounded-full bg-primary hover:bg-primary/90 text-[#0a0c14] flex items-center justify-center shrink-0 disabled:opacity-40 transition-all">
+                          {isSendingChat ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 ml-0.5" />}
+                        </button>
+                      </form>
+                    </div>
+                  </>
+                )}
               </div>
             </motion.div>
           )}
