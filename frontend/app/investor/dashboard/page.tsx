@@ -39,6 +39,7 @@ export default function InvestorDashboard() {
   const [isSendingChat, setIsSendingChat] = useState(false)
   const [isLoadingThread, setIsLoadingThread] = useState(false)
   const [chatSearch, setChatSearch] = useState('')
+  const [activeChatFilter, setActiveChatFilter] = useState<'all' | 'unread'>('all')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Contact Founder Modal
@@ -345,14 +346,37 @@ export default function InvestorDashboard() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input value={chatSearch} onChange={e => setChatSearch(e.target.value)} placeholder="Search..." className="w-full bg-[#1e2d47] text-white text-sm pl-9 pr-4 py-2 rounded-lg outline-none placeholder:text-slate-500" />
                   </div>
+                  {/* Filters */}
+                  <div className="flex gap-2 mt-3">
+                    {(['all', 'unread'] as const).map(f => (
+                      <button
+                        key={f}
+                        onClick={() => setActiveChatFilter(f)}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all ${activeChatFilter === f ? 'bg-primary text-[#0a0c14]' : 'bg-[#1e2d47] text-slate-400 hover:text-white'}`}
+                      >
+                        {f}
+                        {f === 'unread' && chatContacts.filter((c: any) => c.unread_count > 0).length > 0 && (
+                          <span className="ml-1 text-[10px]">({chatContacts.filter((c: any) => c.unread_count > 0).length})</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
-                  {chatContacts.filter((c: any) => c.contact_name.toLowerCase().includes(chatSearch.toLowerCase())).length === 0 ? (
+                  {chatContacts.filter((c: any) => {
+                    const matchesSearch = c.contact_name.toLowerCase().includes(chatSearch.toLowerCase())
+                    const matchesFilter = activeChatFilter === 'all' || (activeChatFilter === 'unread' && c.unread_count > 0)
+                    return matchesSearch && matchesFilter
+                  }).length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-slate-500 p-6 text-center">
                       <MessageSquare className="w-8 h-8 opacity-40 mb-2" />
                       <p className="text-sm">No conversations yet</p>
                     </div>
-                  ) : chatContacts.filter((c: any) => c.contact_name.toLowerCase().includes(chatSearch.toLowerCase())).map((contact: any) => (
+                  ) : chatContacts.filter((c: any) => {
+                    const matchesSearch = c.contact_name.toLowerCase().includes(chatSearch.toLowerCase())
+                    const matchesFilter = activeChatFilter === 'all' || (activeChatFilter === 'unread' && c.unread_count > 0)
+                    return matchesSearch && matchesFilter
+                  }).map((contact: any) => (
                     <div key={contact.contact_id} onClick={() => setActiveChatId(contact.contact_id)}
                       className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-all border-b border-[#1e2d47]/40 hover:bg-[#1a253a] ${activeChatId === contact.contact_id ? 'bg-[#1a253a]' : ''}`}>
                       <ChatAvatar name={contact.contact_name} />
