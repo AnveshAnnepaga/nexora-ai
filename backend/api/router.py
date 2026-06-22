@@ -300,10 +300,10 @@ Domain {focus}: {domain_map.get(focus, "General questions")}
 5. If the founder provides a concrete, acceptable answer to the domain question, mark `is_domain_satisfied` as true.
 
 CRITICAL INSTRUCTION: You MUST respond in pure JSON format exactly like this:
-{
+{{
   "reply": "Your VC response or question here (max 3 lines)",
   "is_domain_satisfied": false
-}
+}}
 """
 
     messages = [SystemMessage(content=system_prompt)]
