@@ -135,11 +135,17 @@ export default function MessagesPage() {
     const msgText = newMessage.trim()
     setNewMessage('')
     try {
-      await fetch(`${API}/api/v1/messages/send`, {
+      const res = await fetch(`${API}/api/v1/messages/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sender_id: internalId, receiver_id: activeContactId, subject: 'Chat', message: msgText })
       })
+      if (!res.ok) {
+        const errorText = await res.text()
+        console.error("Backend error response:", errorText)
+        alert("Failed to send message: " + errorText)
+        throw new Error(errorText)
+      }
       fetchThread(activeContactId, false)
       fetchContacts()
     } catch (e) {

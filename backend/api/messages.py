@@ -81,7 +81,7 @@ def send_message(msg_in: MessageCreate, background_tasks: BackgroundTasks, db: S
     if msg_in.idea_id:
         idea = db.query(Idea).filter(Idea.id == msg_in.idea_id).first()
         if idea:
-            idea.contact_requests += 1
+            idea.contact_requests = (idea.contact_requests or 0) + 1
 
     db.commit()
     

@@ -109,8 +109,14 @@ export default function InvestorDashboard() {
     setIsSendingChat(true)
     const text = chatMessage.trim(); setChatMessage('')
     try {
-      await fetch(`${API}/api/v1/messages/send`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const res = await fetch(`${API}/api/v1/messages/send`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sender_id: internalId, receiver_id: activeChatId, subject: 'Chat', message: text }) })
+      if (!res.ok) {
+        const errorText = await res.text()
+        console.error("Backend error response:", errorText)
+        alert("Failed to send message: " + errorText)
+        throw new Error(errorText)
+      }
       fetchChatThread(activeChatId, false); fetchChatContacts()
     } catch (e) { console.error(e) } finally { setIsSendingChat(false) }
   }

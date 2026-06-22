@@ -47,7 +47,7 @@ export default function InvestorsDirectoryPage() {
     if (!selectedIdeaId || !message) return alert("Please select an idea and write a message.")
     setIsSending(true)
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/v1/messages/send`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/v1/messages/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -58,6 +58,11 @@ export default function InvestorsDirectoryPage() {
           message: message
         })
       })
+      if (!res.ok) {
+        const errorText = await res.text()
+        alert("Failed to send message: " + errorText)
+        throw new Error(errorText)
+      }
       setContactModalOpen(false)
       setMessage('')
       setSelectedIdeaId('')
