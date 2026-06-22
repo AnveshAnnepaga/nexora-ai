@@ -255,7 +255,7 @@ async def interrogate_founder(request: InterrogationRequest):
     from agents.llm_setup import get_llm
     from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
-    llm = get_llm(temperature=0.8)
+    llm = get_llm(temperature=0.8).bind(response_format={"type": "json_object"})
 
     startup_context = f"""
 Startup: {request.startup_name or "Unknown"}
