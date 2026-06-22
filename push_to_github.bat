@@ -24,12 +24,7 @@ git add .
 echo Files staged.
 
 REM Commit
-git commit -m "chore: prep for Hugging Face and Vercel deployment
-
-- Replaced hardcoded localhost APIs with NEXT_PUBLIC_API_URL
-- Swapped PPTX exporter for ReportLab PDF pitch deck generator
-- Generated Hugging Face Dockerfile
-- Sanitized Content-Disposition filenames"
+git commit -m "update"
 
 echo Committed.
 

@@ -18,4 +18,6 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          git push --force https://annepagaanvesh:$HF_TOKEN@huggingface.co/spaces/annepagaanvesh/nexora-ai-engine main
+          pip install huggingface_hub
+          huggingface-cli login --token $HF_TOKEN
+          huggingface-cli upload annepagaanvesh/nexora-ai-engine . . --repo-type space --exclude ".git/*" --commit-message "Automated sync from GitHub"
