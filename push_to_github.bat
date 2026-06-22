@@ -33,7 +33,7 @@ git commit -m "chore: prep for Hugging Face and Vercel deployment
 
 echo Committed.
 
-REM Push to main branch
+REM Push to GitHub
 git branch -M main
 git push -u origin main --force
 
