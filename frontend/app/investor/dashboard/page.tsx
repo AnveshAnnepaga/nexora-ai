@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser, useClerk } from '@clerk/nextjs'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Filter, Mail, Briefcase, Star, Clock, FileText, Send, User, Loader2, MessageSquare } from 'lucide-react'
+import { Search, Filter, Mail, Briefcase, Star, Clock, FileText, Send, User, Loader2, MessageSquare, Bell } from 'lucide-react'
 
 function getAvatarColor(name: string): string {
   const colors = ['bg-violet-600','bg-emerald-600','bg-rose-600','bg-amber-600','bg-sky-600','bg-pink-600','bg-teal-600','bg-orange-600']
