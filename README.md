@@ -1,3 +1,13 @@
+---
+title: Nexora AI Engine
+emoji: 🚀
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+app_port: 7860
+---
+
 # Nexora — AI Startup Intelligence Engine 🚀
 
 Nexora is a full-stack, AI-powered platform designed to evaluate and validate startup ideas. By leveraging a team of 16 specialized AI agents, Nexora acts as a relentless, data-driven mentor and investor panel, providing founders with comprehensive market research, SWOT analysis, and actionable feedback before they write a single line of code.
