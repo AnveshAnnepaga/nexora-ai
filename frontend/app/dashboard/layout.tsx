@@ -1,7 +1,7 @@
 "use client"
 import React, { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { useUser, UserButton } from '@clerk/nextjs'
+import { useUser, UserButton, useClerk } from '@clerk/nextjs'
 import { Bell, Briefcase, PlusCircle, Users, MessageSquare, Settings, LogOut, Cpu } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'

@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description: "Evaluate your startup idea with 16 specialized AI agents. Get investor scores, market research, SWOT, competitor analysis, pitch deck, roadmap and funding readiness report.",
 }
 
-import { ClerkProvider, UserButton } from "@clerk/nextjs"
+import { ClerkProvider } from "@clerk/nextjs"
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
