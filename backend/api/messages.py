@@ -160,16 +160,19 @@ def get_contacts(user_id: int, db: Session = Depends(get_db)):
         if contact_id not in contacts:
             contact_user = db.query(User).filter(User.id == contact_id).first()
             if not contact_user:
-                continue
-                
-            display_name = contact_user.full_name or "Anonymous"
-            if is_investor and contact_user.role == "entrepreneur":
-                display_name = display_name.split()[0] if display_name else "Anonymous"
+                # DEBUG: Add them as unknown to see if this is the issue
+                display_name = f"Unknown User ({contact_id})"
+                role = "unknown"
+            else:
+                display_name = contact_user.full_name or "Anonymous"
+                role = contact_user.role
+                if is_investor and contact_user.role == "entrepreneur":
+                    display_name = display_name.split()[0] if display_name else "Anonymous"
                 
             contacts[contact_id] = {
                 "contact_id": contact_id,
                 "contact_name": display_name,
-                "contact_role": contact_user.role,
+                "contact_role": role,
                 "latest_message": m.message,
                 "latest_timestamp": m.timestamp,
                 "unread_count": 0
@@ -178,7 +181,15 @@ def get_contacts(user_id: int, db: Session = Depends(get_db)):
         if m.sender_id == contact_id and m.receiver_id == user_id and not m.is_read:
             contacts[contact_id]["unread_count"] += 1
             
-    sorted_contacts = sorted(list(contacts.values()), key=lambda x: x["latest_timestamp"] or datetime.min, reverse=True)
+    def get_sort_key(x):
+        ts = x["latest_timestamp"]
+        if not ts:
+            return ""
+        if isinstance(ts, str):
+            return ts
+        return ts.isoformat()
+            
+    sorted_contacts = sorted(list(contacts.values()), key=get_sort_key, reverse=True)
     return sorted_contacts
 
 @router.get("/thread/{user_id}/{contact_id}")
