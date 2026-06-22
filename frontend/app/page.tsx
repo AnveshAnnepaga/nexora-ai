@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react'
 import Link from 'next/link'
 import Script from 'next/script'
-import { SignInButton, useAuth } from '@clerk/nextjs'
+import { SignInButton, useAuth, UserButton } from '@clerk/nextjs'
 
 export default function Home() {
   const { isLoaded, userId } = useAuth();
@@ -205,8 +205,14 @@ void main() {
           <span className="material-symbols-outlined text-primary text-3xl" style={{fontVariationSettings: "'FILL' 1"}}>rocket_launch</span>
           <h1 className="font-display-lg text-headline-lg-mobile tracking-tighter text-primary drop-shadow-[0_0_15px_rgba(0,212,255,0.4)] orbitron">NEXORA</h1>
         </div>
-        <div className="h-10 w-10 rounded-full bg-surface-variant overflow-hidden border border-primary/30">
-          <img className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFPE_emoR2GEfOl4sxAFDt6rzeNXXM0cMhp6IjOLQ9vK8RDEoh5ZTX3oWps2_JDQVZJKZ-wgCYaOttVuAZ_jo3pQU0MW7chGpA2Sd8SmVterBAZp4Vn4I9C8vahItf0q0zF84VkfRvK2T92qusJk_zugurLwbXrgm1eN9a_g1IqM3Mfs-EzK7QuLB1oCCLMDUkK0AZUOeqHscg-aBTAE8hB7JrRDATdH2Tjt9WPDI_IYMnmgWRmMbJJZD9dwYMX5yKS9MwKkskA58" alt="Profile" />
+        <div className="flex items-center gap-2">
+          {userId ? (
+            <UserButton afterSignOutUrl="/" />
+          ) : (
+            <div className="h-10 w-10 rounded-full bg-surface-variant overflow-hidden border border-primary/30">
+              <span className="material-symbols-outlined w-full h-full flex items-center justify-center text-slate-500">person</span>
+            </div>
+          )}
         </div>
       </header>
 

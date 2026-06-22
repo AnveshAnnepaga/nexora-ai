@@ -1,7 +1,7 @@
 "use client"
 import React, { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { useUser, useClerk } from '@clerk/nextjs'
+import { useUser, UserButton } from '@clerk/nextjs'
 import { Bell, Briefcase, PlusCircle, Users, MessageSquare, Settings, LogOut, Cpu } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
@@ -125,8 +125,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </motion.div>
               )}
             </AnimatePresence>
-            <div className="w-8 h-8 rounded-full border border-primary/30 overflow-hidden">
-              <img className="w-full h-full object-cover" src={user?.imageUrl || "https://ui-avatars.com/api/?name=User"} alt="Profile" />
+            <div className="flex items-center justify-center">
+              <UserButton afterSignOutUrl="/" />
             </div>
           </div>
         </header>

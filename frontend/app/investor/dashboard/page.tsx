@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { useUser, useClerk } from '@clerk/nextjs'
+import { useUser, useClerk, UserButton } from '@clerk/nextjs'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, Filter, Mail, Briefcase, Star, Clock, FileText, Send, User, Loader2, MessageSquare, Bell } from 'lucide-react'
 
@@ -235,47 +235,54 @@ export default function InvestorDashboard() {
         </button>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col relative h-screen overflow-hidden">
+        {/* Top Bar */}
+        <header className="relative z-50 h-16 border-b border-[#1e2d47] bg-[#0a0c14]/80 backdrop-blur-md flex items-center justify-end px-6 shrink-0">
+          <div className="flex items-center gap-4 relative">
+            <button onClick={handleNotificationClick} className="relative p-2 text-slate-400 hover:text-white transition-colors bg-[#111827] border border-[#1e2d47] rounded-full">
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-primary rounded-full glow-cyan border-2 border-[#111827]"></span>
+              )}
+            </button>
+            <div className="flex items-center justify-center">
+              <UserButton afterSignOutUrl="/" />
+            </div>
+
+            <AnimatePresence>
+              {showNotifications && (
+                <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute top-12 right-0 w-80 bg-[#111827] border border-[#1e2d47] rounded-2xl shadow-2xl overflow-hidden z-50">
+                  <div className="p-4 border-b border-[#1e2d47] bg-[#0d1424]">
+                    <h3 className="font-bold text-white">Notifications</h3>
+                  </div>
+                  <div className="max-h-96 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-6 text-center text-sm text-slate-500">No notifications yet</div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div key={n.id} className={`p-4 border-b border-[#1e2d47]/50 text-sm ${!n.is_read ? 'bg-primary/5' : ''}`}>
+                          <p className="text-slate-200 mb-1 leading-relaxed">{n.message}</p>
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            {new Date(n.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </header>
+
+        <main className="flex-1 p-8 overflow-y-auto">
         <AnimatePresence mode="wait">
+
           {activeTab === 'browse' && (
             <motion.div key="browse" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative">
-              
-              {/* Top Navigation / Notification Bar */}
-              <div className="absolute right-0 top-0 flex items-center gap-4 z-50">
-                <button onClick={handleNotificationClick} className="relative p-2 text-slate-400 hover:text-white transition-colors bg-[#111827] border border-[#1e2d47] rounded-full">
-                  <Bell className="w-5 h-5" />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-primary rounded-full glow-cyan border-2 border-[#111827]"></span>
-                  )}
-                </button>
 
-                <AnimatePresence>
-                  {showNotifications && (
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute top-12 right-0 w-80 bg-[#111827] border border-[#1e2d47] rounded-2xl shadow-2xl overflow-hidden z-50">
-                      <div className="p-4 border-b border-[#1e2d47] bg-[#0d1424]">
-                        <h3 className="font-bold text-white">Notifications</h3>
-                      </div>
-                      <div className="max-h-96 overflow-y-auto">
-                        {notifications.length === 0 ? (
-                          <div className="p-6 text-center text-sm text-slate-500">No notifications yet</div>
-                        ) : (
-                          notifications.map((n) => (
-                            <div key={n.id} className={`p-4 border-b border-[#1e2d47]/50 text-sm ${!n.is_read ? 'bg-primary/5' : ''}`}>
-                              <p className="text-slate-200 mb-1 leading-relaxed">{n.message}</p>
-                              <span className="text-[10px] text-slate-500 font-mono">
-                                {new Date(n.created_at).toLocaleDateString()}
-                              </span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              <div className="flex items-center justify-between mb-8 pr-16">
+              <div className="flex items-center justify-between mb-8">
                 <h1 className="text-3xl font-bold">Startup Deal Flow</h1>
                 <div className="flex gap-4">
                   <div className="relative">
@@ -505,6 +512,7 @@ export default function InvestorDashboard() {
           )}
         </AnimatePresence>
       </main>
+      </div>
     </div>
   )
 }

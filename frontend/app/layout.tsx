@@ -12,9 +12,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className="font-body-md text-on-background selection:bg-primary-container selection:text-on-primary-container" suppressHydrationWarning>
         <ClerkProvider>
-          <header className="fixed top-0 right-0 p-4 z-50">
-            <UserButton />
-          </header>
           {children}
         </ClerkProvider>
       </body>
