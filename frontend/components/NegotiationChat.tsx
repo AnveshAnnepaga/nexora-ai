@@ -146,7 +146,7 @@ export default function InvestorChat() {
     }
   }
 
-  const canClose = interrogationHistory.filter(m => m.role === 'user').length >= 5
+  const canClose = localDomains.length >= 4
 
   return (
     <div className="flex flex-col h-[75vh] w-full max-w-4xl mx-auto -mt-4">

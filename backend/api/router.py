@@ -296,13 +296,15 @@ Domain {focus}: {domain_map.get(focus, "General questions")}
 1. Your entire response MUST be 3 lines or fewer. No exceptions.
 2. Ask exactly ONE probing question at a time. Wait for the answer before proceeding.
 3. Be direct. Do not include long preambles, greetings, or explanations before asking.
-4. If the founder's answer is vague, ask one sharp follow-up to dig deeper.
-5. Vary your style: direct, hypothetical, devil's advocate, scenario-based.
-6. When you have enough on a domain, move to the next domain directly in your next question.
-7. If this is the first message, open with a very short introduction and your first question.
-8. If the founder provides a weak answer, press them on it professionally, but do not insult them.
+4. If the founder's answer is vague, evasive, or useless, press them on it professionally. DO NOT mark the domain as satisfied.
+5. If the founder provides a concrete, acceptable answer to the domain question, mark `is_domain_satisfied` as true.
 
-Remember: 3 lines maximum. Direct. Sharp. 1 Question."""
+CRITICAL INSTRUCTION: You MUST respond in pure JSON format exactly like this:
+{
+  "reply": "Your VC response or question here (max 3 lines)",
+  "is_domain_satisfied": false
+}
+"""
 
     messages = [SystemMessage(content=system_prompt)]
     for msg in request.history:
@@ -314,10 +316,39 @@ Remember: 3 lines maximum. Direct. Sharp. 1 Question."""
 
     try:
         response = llm.invoke(messages)
+        
+        # Parse JSON
+        import json
+        import re
+        content = response.content.strip()
+        
+        # Extract JSON block even if there is surrounding text
+        match = re.search(r'\{.*\}', content, re.DOTALL)
+        if match:
+            content = match.group(0)
+            
+        try:
+            data = json.loads(content)
+            reply_text = data.get("reply", response.content)
+            is_satisfied = data.get("is_domain_satisfied", False)
+        except json.JSONDecodeError:
+            reply_text = response.content
+            is_satisfied = False
+
+        if is_satisfied and focus not in (request.domains_completed or []):
+            if request.domains_completed is None:
+                request.domains_completed = []
+            request.domains_completed.append(focus)
+
+        domains_remaining = [d for d in ["A","B","C","D","E","F","G","H","I","J"]
+                             if d not in (request.domains_completed or [])]
+        
+        next_focus = focus if not is_satisfied else (domains_remaining[0] if domains_remaining else focus)
+
         return {
-            "reply": response.content,
+            "reply": reply_text,
             "domains_remaining": domains_remaining,
-            "current_domain": focus,
+            "current_domain": next_focus,
         }
     except Exception as e:
         import traceback
